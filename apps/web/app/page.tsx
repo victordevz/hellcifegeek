@@ -150,7 +150,7 @@ const products = [
 
 function ChromeMark() {
   return (
-    <img className="brandIcon chromeMark" src="/chrome.png" alt="" aria-hidden="true" />
+    <img className="brandIcon chromeMark" src="/chrome2.png" alt="" aria-hidden="true" />
   );
 }
 
@@ -399,7 +399,7 @@ export default function Page() {
           <div className="authChoices">
             <button type="button">
               <ChromeMark />
-              <span>Entrar com Chrome</span>
+              <span>Entrar com Google</span>
             </button>
             <button type="button">
               <AppleMark />
