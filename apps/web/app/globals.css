@@ -60,7 +60,7 @@ button {
 }
 
 .logo {
-  position: fixed;
+  position: absolute;
   z-index: 30;
   top: 18px;
   left: 18px;
