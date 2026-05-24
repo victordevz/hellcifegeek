@@ -155,8 +155,8 @@ export default function Page() {
           </div>
           <RotatingScrollIndicator />
           <div className="role">
-            <span>Geek imports market</span>
-            <strong>JAPAN DROPS<br />RARE FIGURES<br />MANGA SUPPLY<br />NO FAKE STOCK</strong>
+            <span>Importados geek</span>
+            <strong>DROPS DO JAPAO<br />FIGURES RARAS<br />MANGAS E GOODS<br />ESTOQUE REAL</strong>
           </div>
         </div>
       </section>
