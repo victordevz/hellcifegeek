@@ -223,45 +223,44 @@ function RotatingScrollIndicator() {
 
 function HeroHeadline() {
   const headlineRef = useRef<HTMLHeadingElement>(null);
+  const [headline, setHeadline] = useState("HELLCIFE GEEK");
 
   useEffect(() => {
-    const headline = headlineRef.current;
+    const headlineNode = headlineRef.current;
 
-    if (!headline) {
+    if (!headlineNode) {
       return;
     }
 
     const timeline = gsap.timeline({ delay: 0.65 });
+    const swapTo = (text: string) => {
+      setHeadline(text);
+      gsap.set(headlineNode, { yPercent: 8 });
+    };
 
     timeline
-      .to(headline, {
+      .to(headlineNode, {
         duration: 0.45,
         ease: "power3.in",
         opacity: 0,
         yPercent: -8
       })
-      .set(headline, {
-        textContent: "FIGURES ORIGINAIS",
-        yPercent: 8
-      })
-      .to(headline, {
+      .call(() => swapTo("FIGURES ORIGINAIS"))
+      .to(headlineNode, {
         duration: 0.55,
         ease: "power3.out",
         opacity: 1,
         yPercent: 0
       })
-      .to(headline, {
-        delay: 1.1,
+      .to(headlineNode, {
+        delay: 1.15,
         duration: 0.45,
         ease: "power3.in",
         opacity: 0,
         yPercent: -8
       })
-      .set(headline, {
-        textContent: "HELLCIFE GEEK",
-        yPercent: 8
-      })
-      .to(headline, {
+      .call(() => swapTo("HELLCIFE GEEK"))
+      .to(headlineNode, {
         duration: 0.55,
         ease: "power3.out",
         opacity: 1,
@@ -273,7 +272,7 @@ function HeroHeadline() {
     };
   }, []);
 
-  return <h1 ref={headlineRef}>HELLCIFE GEEK</h1>;
+  return <h1 ref={headlineRef}>{headline}</h1>;
 }
 
 export default function Page() {
