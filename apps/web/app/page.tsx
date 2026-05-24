@@ -267,7 +267,18 @@ export default function Page() {
           {navItems.map((item) => (
             <a key={item.label} href={item.href}>{item.label}</a>
           ))}
-          <button className="loginLink" onClick={openLogin}>Login</button>
+          <button
+            type="button"
+            className="loginLink"
+            aria-haspopup="dialog"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              openLogin();
+            }}
+          >
+            Login
+          </button>
         </div>
       </nav>
 
@@ -397,15 +408,15 @@ export default function Page() {
 
             {authMode === "login" ? (
               <div className="authChoices">
-                <button>
+                <button type="button">
                   <Chrome size={22} strokeWidth={2.5} />
                   Entrar com Chrome
                 </button>
-                <button>
+                <button type="button">
                   <Apple size={22} strokeWidth={2.5} />
                   Entrar com Apple
                 </button>
-                <button className="manualButton" onClick={() => setAuthMode("manual")}>
+                <button type="button" className="manualButton" onClick={() => setAuthMode("manual")}>
                   Cadastro manual
                   <ArrowUpRight size={22} strokeWidth={2.5} />
                 </button>
