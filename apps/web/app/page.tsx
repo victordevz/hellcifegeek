@@ -99,36 +99,58 @@ const products = [
 ];
 
 function RotatingScrollIndicator() {
+  const indicatorRef = useRef<HTMLAnchorElement>(null);
   const arrowRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (!arrowRef.current) {
+    const indicator = indicatorRef.current;
+    const arrow = arrowRef.current;
+
+    if (!indicator || !arrow) {
       return;
     }
 
-    gsap.set(arrowRef.current, {
+    gsap.set(arrow, {
       rotation: 0,
       transformOrigin: "50% 50%",
       y: -4
     });
+
+    const rotateDown = () => {
+      gsap.to(arrow, {
+        duration: 0.5,
+        ease: "power3.out",
+        rotation: 180,
+        transformOrigin: "50% 50%",
+        y: 3
+      });
+    };
+
+    const rotateUp = () => {
+      gsap.to(arrow, {
+        duration: 0.5,
+        ease: "power3.out",
+        rotation: 0,
+        transformOrigin: "50% 50%",
+        y: -4
+      });
+    };
+
+    indicator.addEventListener("pointerenter", rotateDown);
+    indicator.addEventListener("pointerleave", rotateUp);
+    indicator.addEventListener("focus", rotateDown);
+    indicator.addEventListener("blur", rotateUp);
+
+    return () => {
+      indicator.removeEventListener("pointerenter", rotateDown);
+      indicator.removeEventListener("pointerleave", rotateUp);
+      indicator.removeEventListener("focus", rotateDown);
+      indicator.removeEventListener("blur", rotateUp);
+    };
   }, []);
 
-  function rotateArrow(rotation: number) {
-    if (!arrowRef.current) {
-      return;
-    }
-
-    gsap.to(arrowRef.current, {
-      duration: 0.42,
-      ease: "power3.out",
-      rotation,
-      transformOrigin: "50% 50%",
-      y: rotation === 0 ? 3 : -4
-    });
-  }
-
   return (
-    <a className="scrollIndicator" href="#work" aria-label="Descer para produtos" onMouseEnter={() => rotateArrow(180)} onMouseLeave={() => rotateArrow(0)} onFocus={() => rotateArrow(180)} onBlur={() => rotateArrow(0)}>
+    <a ref={indicatorRef} className="scrollIndicator" href="#work" aria-label="Descer para produtos">
       <svg className="scrollText" viewBox="0 0 144 144" aria-hidden="true">
         <defs>
           <path id="scroll-path" d="M72 72 m -53 0 a 53 53 0 1 1 106 0 a 53 53 0 1 1 -106 0" />

@@ -206,7 +206,15 @@ h2 {
 .scrollArrow {
   display: grid;
   place-items: center;
+  transform: translateY(-4px) rotate(0deg);
+  transform-origin: 50% 50%;
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
+}
+
+.scrollIndicator:hover .scrollArrow,
+.scrollIndicator:focus-visible .scrollArrow {
+  transform: translateY(3px) rotate(180deg);
 }
 
 .scrollText {
