@@ -209,7 +209,11 @@ h2 {
 }
 
 .scrollArrow {
-  transform: translateY(-4px);
+  transform: translateY(-4px) rotate(180deg);
+  transition: transform 160ms linear;
+}
+
+.scrollIndicator:hover .scrollArrow {
   animation: arrowDrop 1.2s linear infinite;
 }
 
@@ -620,11 +624,11 @@ h2 {
 @keyframes arrowDrop {
   0%,
   100% {
-    transform: translateY(-6px);
+    transform: translateY(-6px) rotate(0deg);
   }
 
   50% {
-    transform: translateY(6px);
+    transform: translateY(6px) rotate(0deg);
   }
 }
 
