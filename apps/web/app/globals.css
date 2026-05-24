@@ -210,11 +210,7 @@ h2 {
 
 .scrollArrow {
   transform: translateY(-4px) rotate(180deg);
-  transition: transform 160ms linear;
-}
-
-.scrollIndicator:hover .scrollArrow {
-  animation: arrowDrop 1.2s linear infinite;
+  will-change: transform;
 }
 
 .scrollText {
@@ -618,17 +614,6 @@ h2 {
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes arrowDrop {
-  0%,
-  100% {
-    transform: translateY(-6px) rotate(0deg);
-  }
-
-  50% {
-    transform: translateY(6px) rotate(0deg);
   }
 }
 
