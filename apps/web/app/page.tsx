@@ -95,6 +95,60 @@ const products = [
     image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=900&q=80",
     recommended: false,
     tags: ["Slots", "Map", "Cancel"]
+  },
+  {
+    title: "Akiba Import Shelf",
+    category: "SKU",
+    price: "R$ 12K",
+    status: "Stock sync",
+    image: "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?auto=format&fit=crop&w=900&q=80",
+    recommended: true,
+    tags: ["Figures", "Manga", "Drops"]
+  },
+  {
+    title: "Rare Figure Queue",
+    category: "On-demand",
+    price: "R$ 17K",
+    status: "Drop alert",
+    image: "https://images.unsplash.com/photo-1608889476561-6242cfdbf622?auto=format&fit=crop&w=900&q=80",
+    recommended: false,
+    tags: ["Queue", "ETA", "Notify"]
+  },
+  {
+    title: "Cosplay Maker Board",
+    category: "Talent",
+    price: "R$ 20K",
+    status: "Quote flow",
+    image: "https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?auto=format&fit=crop&w=900&q=80",
+    recommended: false,
+    tags: ["Brief", "Proof", "Chat"]
+  },
+  {
+    title: "Japan Club Finder",
+    category: "Directory",
+    price: "R$ 11K",
+    status: "Lead ready",
+    image: "https://images.unsplash.com/photo-1528164344705-47542687000d?auto=format&fit=crop&w=900&q=80",
+    recommended: true,
+    tags: ["Clubs", "Reviews", "Map"]
+  },
+  {
+    title: "Booth Reserve Flow",
+    category: "Availability",
+    price: "R$ 23K",
+    status: "Calendar lock",
+    image: "https://images.unsplash.com/photo-1578898887932-dce23a595ad4?auto=format&fit=crop&w=900&q=80",
+    recommended: false,
+    tags: ["Events", "Slots", "Fees"]
+  },
+  {
+    title: "Preorder Cart Core",
+    category: "SKU",
+    price: "R$ 15K",
+    status: "Preorder safe",
+    image: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=900&q=80",
+    recommended: true,
+    tags: ["Deposit", "Tax", "Ship"]
   }
 ];
 
