@@ -277,7 +277,8 @@ h2 {
 .filterBar button,
 .productMeta,
 .productTags span,
-.productBody a {
+.productBody a,
+.loadMore {
   font-family: var(--font-space), monospace;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -424,6 +425,30 @@ h2 {
 
 .productCard:hover .productBody a svg {
   transform: rotate(45deg) scale(1.1);
+}
+
+.loadMore {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  padding: 0 24px;
+  font-size: 12px;
+  transition: color 160ms linear, transform 160ms linear;
+}
+
+.loadMore:hover {
+  color: var(--red);
+  transform: translateX(4px) scale(1.08);
+}
+
+.loadMore span {
+  color: var(--red);
 }
 
 

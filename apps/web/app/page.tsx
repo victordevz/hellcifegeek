@@ -40,6 +40,7 @@ const socialItems = [
 ];
 
 const categories = ["All", "Recommended", "Availability", "SKU", "Talent", "On-demand", "Directory"];
+const productsPerPage = 6;
 
 const products = [
   {
@@ -222,6 +223,7 @@ function RotatingScrollIndicator() {
 
 export default function Page() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const [visibleCount, setVisibleCount] = useState(productsPerPage);
   const visibleProducts = useMemo(() => {
     if (activeCategory === "All") {
       return products;
@@ -233,6 +235,13 @@ export default function Page() {
 
     return products.filter((product) => product.category === activeCategory);
   }, [activeCategory]);
+  const displayedProducts = visibleProducts.slice(0, visibleCount);
+  const canShowMore = visibleCount < visibleProducts.length;
+
+  function selectCategory(category: string) {
+    setActiveCategory(category);
+    setVisibleCount(productsPerPage);
+  }
 
   return (
     <main>
@@ -271,14 +280,14 @@ export default function Page() {
       <section id="work" className="marketplacePortfolio">
         <div className="filterBar" aria-label="Marketplace filters">
           {categories.map((category) => (
-            <button key={category} className={activeCategory === category ? "active" : ""} onClick={() => setActiveCategory(category)}>
+            <button key={category} className={activeCategory === category ? "active" : ""} onClick={() => selectCategory(category)}>
               {category}
             </button>
           ))}
         </div>
 
         <div className="productGrid">
-          {visibleProducts.map((product) => (
+          {displayedProducts.map((product) => (
             <article key={product.title} className="productCard">
               <div className="productImage">
                 <img src={product.image} alt={product.title} />
@@ -303,6 +312,13 @@ export default function Page() {
             </article>
           ))}
         </div>
+
+        {canShowMore && (
+          <button className="loadMore" onClick={() => setVisibleCount((current) => current + productsPerPage)}>
+            Ver mais
+            <span>{visibleProducts.length - visibleCount} restantes</span>
+          </button>
+        )}
       </section>
 
       <section id="services" className="services">
