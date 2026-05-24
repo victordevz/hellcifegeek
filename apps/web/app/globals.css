@@ -46,8 +46,8 @@ button {
   position: fixed;
   z-index: 20;
   top: 18px;
-  left: 18px;
-  right: 18px;
+  left: 14px;
+  right: 14px;
   display: flex;
   justify-content: flex-end;
   pointer-events: none;
@@ -271,6 +271,7 @@ h2 {
 .marketplacePortfolio {
   display: grid;
   gap: 18px;
+  scroll-margin-top: 86px;
   border-bottom: 2px solid var(--black);
   padding: 18px 18px 54px;
 }
@@ -733,6 +734,10 @@ h2 {
     left: 10px;
     right: 10px;
     top: 10px;
+  }
+
+  .marketplacePortfolio {
+    scroll-margin-top: 94px;
   }
 
   .logo {
