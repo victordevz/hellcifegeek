@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { ArrowDown, ArrowUpRight, Github, Instagram, Linkedin } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Github, Instagram, Linkedin } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
@@ -107,7 +107,7 @@ function RotatingScrollIndicator() {
     }
 
     gsap.set(arrowRef.current, {
-      rotation: 180,
+      rotation: 0,
       transformOrigin: "50% 50%",
       y: -4
     });
@@ -128,7 +128,7 @@ function RotatingScrollIndicator() {
   }
 
   return (
-    <a className="scrollIndicator" href="#work" aria-label="Descer para produtos" onMouseEnter={() => rotateArrow(0)} onMouseLeave={() => rotateArrow(180)} onFocus={() => rotateArrow(0)} onBlur={() => rotateArrow(180)}>
+    <a className="scrollIndicator" href="#work" aria-label="Descer para produtos" onMouseEnter={() => rotateArrow(180)} onMouseLeave={() => rotateArrow(0)} onFocus={() => rotateArrow(180)} onBlur={() => rotateArrow(0)}>
       <svg className="scrollText" viewBox="0 0 144 144" aria-hidden="true">
         <defs>
           <path id="scroll-path" d="M72 72 m -53 0 a 53 53 0 1 1 106 0 a 53 53 0 1 1 -106 0" />
@@ -138,7 +138,7 @@ function RotatingScrollIndicator() {
         </text>
       </svg>
       <span ref={arrowRef} className="scrollArrow">
-        <ArrowDown size={34} strokeWidth={2.5} />
+        <ArrowUp size={34} strokeWidth={2.5} />
       </span>
     </a>
   );
