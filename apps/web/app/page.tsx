@@ -222,29 +222,12 @@ function RotatingScrollIndicator() {
 }
 
 function HeroHeadline() {
-  const [headline, setHeadline] = useState("HELLCIFE GEEK");
-  const [isChanging, setIsChanging] = useState(false);
-
-  useEffect(() => {
-    const timers = [
-      window.setTimeout(() => setIsChanging(true), 1300),
-      window.setTimeout(() => {
-        setHeadline("FIGURES ORIGINAIS");
-        setIsChanging(false);
-      }, 1800),
-      window.setTimeout(() => setIsChanging(true), 3800),
-      window.setTimeout(() => {
-        setHeadline("HELLCIFE GEEK");
-        setIsChanging(false);
-      }, 4300)
-    ];
-
-    return () => {
-      timers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, []);
-
-  return <h1 className={isChanging ? "isChanging" : ""}>{headline}</h1>;
+  return (
+    <div className="heroHeadline" aria-label="HELLCIFE GEEK">
+      <h1 className="mainHeadline">HELLCIFE GEEK</h1>
+      <h1 className="altHeadline" aria-hidden="true">FIGURES ORIGINAIS</h1>
+    </div>
+  );
 }
 
 export default function Page() {

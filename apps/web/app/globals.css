@@ -160,21 +160,33 @@ h2 {
   text-transform: uppercase;
 }
 
-.hero h1 {
+.heroHeadline {
   align-self: center;
   justify-self: center;
-  min-height: 0.85em;
+  position: relative;
+  width: 96vw;
   max-width: 96vw;
+  overflow: hidden;
+}
+
+.hero h1 {
+  margin: 0;
   font-size: 15.7vw;
   line-height: 0.85;
   text-align: center;
-  transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
 
-.hero h1.isChanging {
+.mainHeadline {
+  position: relative;
+  animation: mainHeadlineSwap 5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both;
+}
+
+.altHeadline {
+  position: absolute;
+  inset: 0;
   opacity: 0;
-  transform: translateY(-8%);
+  animation: altHeadlineSwap 5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both;
 }
 
 .heroMeta {
@@ -651,6 +663,46 @@ h2 {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes mainHeadlineSwap {
+  0%,
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  30%,
+  70% {
+    opacity: 0;
+    transform: translateY(-8%);
+  }
+
+  82%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes altHeadlineSwap {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(8%);
+  }
+
+  42%,
+  58% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateY(-8%);
   }
 }
 
