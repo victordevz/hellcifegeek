@@ -99,7 +99,7 @@ const products = [
 
 function RotatingScrollIndicator() {
   return (
-    <div className="scrollIndicator" aria-label="Scroll down">
+    <a className="scrollIndicator" href="#work" aria-label="Descer para produtos">
       <svg className="scrollText" viewBox="0 0 144 144" aria-hidden="true">
         <defs>
           <path id="scroll-path" d="M72 72 m -53 0 a 53 53 0 1 1 106 0 a 53 53 0 1 1 -106 0" />
@@ -108,8 +108,8 @@ function RotatingScrollIndicator() {
           <textPath href="#scroll-path">Scroll Down • Scroll Down • Scroll Down • Scroll Down • </textPath>
         </text>
       </svg>
-      <ArrowDown size={34} strokeWidth={2.5} />
-    </div>
+      <ArrowDown className="scrollArrow" size={34} strokeWidth={2.5} />
+    </a>
   );
 }
 
@@ -155,8 +155,8 @@ export default function Page() {
           </div>
           <RotatingScrollIndicator />
           <div className="role">
-            <span>Importados geek</span>
-            <strong>DROPS DO JAPAO<br />FIGURES RARAS<br />MANGAS E GOODS<br />ESTOQUE REAL</strong>
+            <span>Importados</span>
+            <strong>DROPS DO JAPAO<br />FIGURES RARAS<br />MANGAS E GOODS<br />PRONTA ENTREGA</strong>
           </div>
         </div>
       </section>

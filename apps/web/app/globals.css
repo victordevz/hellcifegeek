@@ -201,6 +201,16 @@ h2 {
   height: 144px;
   display: grid;
   place-items: center;
+  transition: transform 160ms linear;
+}
+
+.scrollIndicator:hover {
+  transform: translateY(6px) scale(1.06);
+}
+
+.scrollArrow {
+  transform: translateY(-4px);
+  animation: arrowDrop 1.2s linear infinite;
 }
 
 .scrollText {
@@ -604,6 +614,17 @@ h2 {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes arrowDrop {
+  0%,
+  100% {
+    transform: translateY(-6px);
+  }
+
+  50% {
+    transform: translateY(6px);
   }
 }
 
