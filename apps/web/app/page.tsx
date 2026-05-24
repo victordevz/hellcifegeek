@@ -221,6 +221,61 @@ function RotatingScrollIndicator() {
   );
 }
 
+function HeroHeadline() {
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    const headline = headlineRef.current;
+
+    if (!headline) {
+      return;
+    }
+
+    const timeline = gsap.timeline({ delay: 0.65 });
+
+    timeline
+      .to(headline, {
+        duration: 0.45,
+        ease: "power3.in",
+        opacity: 0,
+        yPercent: -8
+      })
+      .set(headline, {
+        textContent: "FIGURES ORIGINAIS",
+        yPercent: 8
+      })
+      .to(headline, {
+        duration: 0.55,
+        ease: "power3.out",
+        opacity: 1,
+        yPercent: 0
+      })
+      .to(headline, {
+        delay: 1.1,
+        duration: 0.45,
+        ease: "power3.in",
+        opacity: 0,
+        yPercent: -8
+      })
+      .set(headline, {
+        textContent: "HELLCIFE GEEK",
+        yPercent: 8
+      })
+      .to(headline, {
+        duration: 0.55,
+        ease: "power3.out",
+        opacity: 1,
+        yPercent: 0
+      });
+
+    return () => {
+      timeline.kill();
+    };
+  }, []);
+
+  return <h1 ref={headlineRef}>HELLCIFE GEEK</h1>;
+}
+
 export default function Page() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [visibleCount, setVisibleCount] = useState(productsPerPage);
@@ -263,7 +318,7 @@ export default function Page() {
 
       <section id="top" className="hero">
         <div className="heroCode">MKP-RED / TWO-SIDED SYSTEM / RECIFE-BR</div>
-        <h1>HELLCIFE GEEK</h1>
+        <HeroHeadline />
         <div className="heroMeta">
           <div>
             <span>Based in</span>

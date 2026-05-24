@@ -163,10 +163,12 @@ h2 {
 .hero h1 {
   align-self: center;
   justify-self: center;
+  min-height: 0.85em;
   max-width: 96vw;
   font-size: 15.7vw;
   line-height: 0.85;
   text-align: center;
+  will-change: opacity, transform;
 }
 
 .heroMeta {
