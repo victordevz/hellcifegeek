@@ -222,57 +222,29 @@ function RotatingScrollIndicator() {
 }
 
 function HeroHeadline() {
-  const headlineRef = useRef<HTMLHeadingElement>(null);
   const [headline, setHeadline] = useState("HELLCIFE GEEK");
+  const [isChanging, setIsChanging] = useState(false);
 
   useEffect(() => {
-    const headlineNode = headlineRef.current;
-
-    if (!headlineNode) {
-      return;
-    }
-
-    const timeline = gsap.timeline({ delay: 0.65 });
-    const swapTo = (text: string) => {
-      setHeadline(text);
-      gsap.set(headlineNode, { yPercent: 8 });
-    };
-
-    timeline
-      .to(headlineNode, {
-        duration: 0.45,
-        ease: "power3.in",
-        opacity: 0,
-        yPercent: -8
-      })
-      .call(() => swapTo("FIGURES ORIGINAIS"))
-      .to(headlineNode, {
-        duration: 0.55,
-        ease: "power3.out",
-        opacity: 1,
-        yPercent: 0
-      })
-      .to(headlineNode, {
-        delay: 1.15,
-        duration: 0.45,
-        ease: "power3.in",
-        opacity: 0,
-        yPercent: -8
-      })
-      .call(() => swapTo("HELLCIFE GEEK"))
-      .to(headlineNode, {
-        duration: 0.55,
-        ease: "power3.out",
-        opacity: 1,
-        yPercent: 0
-      });
+    const timers = [
+      window.setTimeout(() => setIsChanging(true), 1300),
+      window.setTimeout(() => {
+        setHeadline("FIGURES ORIGINAIS");
+        setIsChanging(false);
+      }, 1800),
+      window.setTimeout(() => setIsChanging(true), 3800),
+      window.setTimeout(() => {
+        setHeadline("HELLCIFE GEEK");
+        setIsChanging(false);
+      }, 4300)
+    ];
 
     return () => {
-      timeline.kill();
+      timers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
 
-  return <h1 ref={headlineRef}>{headline}</h1>;
+  return <h1 className={isChanging ? "isChanging" : ""}>{headline}</h1>;
 }
 
 export default function Page() {

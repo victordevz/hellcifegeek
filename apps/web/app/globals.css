@@ -168,7 +168,13 @@ h2 {
   font-size: 15.7vw;
   line-height: 0.85;
   text-align: center;
+  transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1), transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
+}
+
+.hero h1.isChanging {
+  opacity: 0;
+  transform: translateY(-8%);
 }
 
 .heroMeta {
