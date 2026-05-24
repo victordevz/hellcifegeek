@@ -162,14 +162,6 @@ export default function Page() {
       </section>
 
       <section id="work" className="marketplacePortfolio">
-        <div className="portfolioTop">
-          <div>
-            <span>Marketplace portfolio</span>
-            <h2>FILTER THE STACK</h2>
-          </div>
-          <p>Produtos de marketplace com mecânica real: categoria, recomendação, status, preço, confiança e clareza antes da transação.</p>
-        </div>
-
         <div className="filterBar" aria-label="Marketplace filters">
           {categories.map((category) => (
             <button key={category} className={activeCategory === category ? "active" : ""} onClick={() => setActiveCategory(category)}>
