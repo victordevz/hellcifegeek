@@ -155,8 +155,8 @@ export default function Page() {
           </div>
           <RotatingScrollIndicator />
           <div className="role">
-            <span>Senior Marketplace UX</span>
-            <strong>TRANSACTION CLARITY<br />TRUST DENSITY<br />BRUTALIST INTERFACE</strong>
+            <span>Geek imports market</span>
+            <strong>JAPAN DROPS<br />RARE FIGURES<br />MANGA SUPPLY<br />NO FAKE STOCK</strong>
           </div>
         </div>
       </section>
