@@ -96,6 +96,18 @@ button {
   transition: background 160ms linear, color 160ms linear, transform 160ms linear;
 }
 
+.navPill button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 13px;
+  font-family: var(--font-space), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  transition: background 160ms linear, color 160ms linear, transform 160ms linear;
+}
+
 .navPill a:hover {
   background: var(--white);
   color: var(--black);
@@ -103,8 +115,14 @@ button {
 }
 
 .loginLink {
+  border: 0;
   background: var(--red);
   color: var(--black) !important;
+}
+
+.loginLink:hover {
+  background: var(--white);
+  transform: translateX(4px) scale(1.1);
 }
 
 .hero {
@@ -620,6 +638,153 @@ h2 {
 
 .footer a:hover {
   transform: translateX(4px) scale(1.1);
+}
+
+.modalOverlay {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 18px;
+}
+
+.authModal {
+  width: min(520px, 100%);
+  border: 2px solid var(--black);
+  background: var(--red);
+  color: var(--black);
+}
+
+.authHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 2px solid var(--black);
+  padding: 18px;
+}
+
+.authHeader span,
+.authChoices button,
+.manualForm label,
+.authActions button {
+  font-family: var(--font-space), monospace;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.authHeader span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.authHeader h2 {
+  font-size: clamp(40px, 7vw, 72px);
+  line-height: 0.86;
+}
+
+.closeModal {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--black);
+  transition: background 160ms linear, color 160ms linear, transform 160ms linear;
+}
+
+.closeModal:hover {
+  background: var(--black);
+  color: var(--red);
+  transform: scale(1.08);
+}
+
+.authChoices,
+.manualForm {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.authChoices button,
+.authActions button {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--black);
+  padding: 0 18px;
+  font-size: 12px;
+  transition: background 160ms linear, color 160ms linear, transform 160ms linear;
+}
+
+.authChoices button:hover,
+.authActions button:hover {
+  background: var(--black);
+  color: var(--red);
+  transform: translateX(4px) scale(1.02);
+}
+
+.manualButton {
+  background: var(--black) !important;
+  color: var(--white) !important;
+}
+
+.manualButton:hover {
+  color: var(--red) !important;
+}
+
+.manualForm label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.manualForm label span {
+  color: var(--black);
+  opacity: 0.66;
+}
+
+.manualForm input {
+  width: 100%;
+  min-height: 54px;
+  border: 2px solid var(--black);
+  border-radius: 0;
+  background: var(--white);
+  color: var(--black);
+  padding: 0 14px;
+  font-family: var(--font-inter), Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  outline: 0;
+}
+
+.manualForm input:focus {
+  background: var(--black);
+  color: var(--red);
+}
+
+.authActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.authActions button[type="submit"] {
+  background: var(--black);
+  color: var(--white);
 }
 
 @keyframes marquee {

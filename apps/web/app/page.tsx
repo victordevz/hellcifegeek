@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { ArrowDown, ArrowUp, ArrowUpRight } from "lucide-react";
+import { Apple, ArrowUp, ArrowUpRight, Chrome, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
@@ -228,6 +228,8 @@ function HeroHeadline() {
 export default function Page() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [visibleCount, setVisibleCount] = useState(productsPerPage);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "manual">("login");
   const visibleProducts = useMemo(() => {
     if (activeCategory === "All") {
       return products;
@@ -247,6 +249,16 @@ export default function Page() {
     setVisibleCount(productsPerPage);
   }
 
+  function openLogin() {
+    setAuthMode("login");
+    setIsLoginOpen(true);
+  }
+
+  function closeLogin() {
+    setIsLoginOpen(false);
+    setAuthMode("login");
+  }
+
   return (
     <main>
       <a className="logo" href="#top">HCG</a>
@@ -255,7 +267,7 @@ export default function Page() {
           {navItems.map((item) => (
             <a key={item.label} href={item.href}>{item.label}</a>
           ))}
-          <a className="loginLink" href="#login">Login</a>
+          <button className="loginLink" onClick={openLogin}>Login</button>
         </div>
       </nav>
 
@@ -270,7 +282,7 @@ export default function Page() {
           <RotatingScrollIndicator />
           <div className="role">
             <span>Importados</span>
-            <strong>DROPS DO JAPAO<br />FIGURES RARAS<br />MANGAS E GOODS<br />PRONTA ENTREGA</strong>
+            <strong>DROPS DO JAPAO<br />FIGURES RARAS<br />MANGAS E BOTTONS<br />PRONTA ENTREGA</strong>
           </div>
         </div>
       </section>
@@ -369,6 +381,58 @@ export default function Page() {
           <a href="#">Linkedin</a>
         </div>
       </footer>
+
+      {isLoginOpen && (
+        <div className="modalOverlay" role="presentation" onMouseDown={closeLogin}>
+          <section className="authModal" role="dialog" aria-modal="true" aria-labelledby="auth-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="authHeader">
+              <div>
+                <span>{authMode === "login" ? "Acesso" : "Cadastro manual"}</span>
+                <h2 id="auth-title">{authMode === "login" ? "Entrar na conta" : "Criar conta"}</h2>
+              </div>
+              <button className="closeModal" aria-label="Fechar modal" onClick={closeLogin}>
+                <X size={22} strokeWidth={3} />
+              </button>
+            </div>
+
+            {authMode === "login" ? (
+              <div className="authChoices">
+                <button>
+                  <Chrome size={22} strokeWidth={2.5} />
+                  Entrar com Chrome
+                </button>
+                <button>
+                  <Apple size={22} strokeWidth={2.5} />
+                  Entrar com Apple
+                </button>
+                <button className="manualButton" onClick={() => setAuthMode("manual")}>
+                  Cadastro manual
+                  <ArrowUpRight size={22} strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : (
+              <form className="manualForm" onSubmit={(event) => event.preventDefault()}>
+                <label>
+                  Email
+                  <input type="email" name="email" placeholder="voce@email.com" required />
+                </label>
+                <label>
+                  Senha
+                  <input type="password" name="password" placeholder="Minimo 8 caracteres" minLength={8} required />
+                </label>
+                <label>
+                  Numero de celular <span>Opcional</span>
+                  <input type="tel" name="phone" placeholder="(81) 99999-9999" />
+                </label>
+                <div className="authActions">
+                  <button type="button" onClick={() => setAuthMode("login")}>Voltar</button>
+                  <button type="submit">Cadastrar</button>
+                </div>
+              </form>
+            )}
+          </section>
+        </div>
+      )}
     </main>
   );
 }
