@@ -759,17 +759,7 @@ h2 {
 }
 
 .chromeMark {
-  border: 2px solid var(--black);
-  border-radius: 999px;
-  background: conic-gradient(#ea4335 0 33%, #fbbc05 0 66%, #34a853 0 84%, #4285f4 0 100%);
-}
-
-.chromeMark span {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--black);
-  border-radius: 999px;
-  background: #4285f4;
+  overflow: visible;
 }
 
 .appleMark {
