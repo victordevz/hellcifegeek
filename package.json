@@ -1,0 +1,13 @@
+{
+  "name": "hellcifegeek",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @hellcifegeek/web",
+    "build": "npm run build -w @hellcifegeek/web",
+    "typecheck": "npm run typecheck -w @hellcifegeek/web"
+  }
+}
