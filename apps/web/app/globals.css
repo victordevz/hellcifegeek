@@ -271,7 +271,7 @@ h2 {
 .marketplacePortfolio {
   display: grid;
   gap: 18px;
-  scroll-margin-top: 86px;
+  scroll-margin-top: 122px;
   border-bottom: 2px solid var(--black);
   padding: 18px 18px 54px;
 }
@@ -737,7 +737,7 @@ h2 {
   }
 
   .marketplacePortfolio {
-    scroll-margin-top: 94px;
+    scroll-margin-top: 118px;
   }
 
   .logo {
