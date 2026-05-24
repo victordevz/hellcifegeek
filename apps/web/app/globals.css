@@ -190,7 +190,9 @@ h2 {
 
 .role {
   justify-self: end;
+  align-self: center;
   text-align: right;
+  transform: translateY(-10px);
 }
 
 .scrollIndicator {
