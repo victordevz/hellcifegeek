@@ -2,7 +2,7 @@
 
 import gsap from "gsap";
 import { ArrowDown, ArrowUpRight, Github, Instagram, Linkedin } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
   {
@@ -99,7 +99,19 @@ const products = [
 ];
 
 function RotatingScrollIndicator() {
-  const arrowRef = useRef<SVGSVGElement>(null);
+  const arrowRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!arrowRef.current) {
+      return;
+    }
+
+    gsap.set(arrowRef.current, {
+      rotation: 180,
+      transformOrigin: "50% 50%",
+      y: -4
+    });
+  }, []);
 
   function rotateArrow(rotation: number) {
     if (!arrowRef.current) {
@@ -125,7 +137,9 @@ function RotatingScrollIndicator() {
           <textPath href="#scroll-path">Scroll Down • Scroll Down • Scroll Down • Scroll Down • </textPath>
         </text>
       </svg>
-      <ArrowDown ref={arrowRef} className="scrollArrow" size={34} strokeWidth={2.5} />
+      <span ref={arrowRef} className="scrollArrow">
+        <ArrowDown size={34} strokeWidth={2.5} />
+      </span>
     </a>
   );
 }
