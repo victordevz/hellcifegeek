@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { ArrowDown, ArrowUp, ArrowUpRight, Github, Instagram, Linkedin } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
@@ -28,15 +28,10 @@ const services = [
 ];
 
 const navItems = [
-  { label: "Work", href: "#work" },
-  { label: "Systems", href: "#services" },
-  { label: "Services", href: "#services" },
-  { label: "Contact", href: "#contact" }
-];
-const socialItems = [
-  { label: "Instagram", icon: Instagram },
-  { label: "Github", icon: Github },
-  { label: "Linkedin", icon: Linkedin }
+  { label: "Home", href: "#top" },
+  { label: "Produtos", href: "#work" },
+  { label: "Catalogo", href: "#services" },
+  { label: "Contato", href: "#contact" }
 ];
 
 const categories = ["All", "Recommended", "Availability", "SKU", "Talent", "On-demand", "Directory"];
@@ -260,13 +255,7 @@ export default function Page() {
           {navItems.map((item) => (
             <a key={item.label} href={item.href}>{item.label}</a>
           ))}
-        </div>
-        <div className="socials" aria-label="Social links">
-          {socialItems.map(({ label, icon: Icon }) => (
-            <a key={label} href="#" aria-label={label}>
-              <Icon size={17} strokeWidth={2.5} />
-            </a>
-          ))}
+          <a className="loginLink" href="#login">Login</a>
         </div>
       </nav>
 
