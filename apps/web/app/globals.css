@@ -678,8 +678,10 @@ h2 {
 .authActions button {
   font-family: var(--font-space), monospace;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .authHeader span {
@@ -732,9 +734,46 @@ h2 {
   border-radius: 999px;
   background: var(--white);
   color: var(--black);
-  padding: 0 18px;
-  font-size: 12px;
+  padding: 0 16px;
+  font-size: 14px;
+  line-height: 1;
   transition: background 160ms linear, color 160ms linear, transform 160ms linear;
+}
+
+.authChoices button {
+  justify-content: flex-start;
+}
+
+.authChoices button span,
+.authChoices a span {
+  flex: 1;
+  text-align: right;
+}
+
+.brandIcon {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+}
+
+.chromeMark {
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: conic-gradient(#ea4335 0 33%, #fbbc05 0 66%, #34a853 0 84%, #4285f4 0 100%);
+}
+
+.chromeMark span {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: #4285f4;
+}
+
+.appleMark {
+  fill: currentColor;
 }
 
 .authChoices button:hover,

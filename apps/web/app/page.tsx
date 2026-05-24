@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { Apple, ArrowUp, ArrowUpRight, Chrome, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
@@ -147,6 +147,22 @@ const products = [
     tags: ["Deposit", "Tax", "Ship"]
   }
 ];
+
+function ChromeMark() {
+  return (
+    <span className="brandIcon chromeMark" aria-hidden="true">
+      <span />
+    </span>
+  );
+}
+
+function AppleMark() {
+  return (
+    <svg className="brandIcon appleMark" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M11.18.01c-.03-.04-1.26.01-2.32 1.17-1.07 1.16-.91 2.48-.88 2.52.02.03 1.52.09 2.47-1.26.96-1.35.77-2.39.73-2.43Zm3.32 11.73c-.05-.1-2.33-1.23-2.12-3.42.21-2.19 1.68-2.79 1.7-2.85.02-.07-.6-.79-1.25-1.16a3.7 3.7 0 0 0-1.57-.43c-.1 0-.48-.1-1.25.11-.51.14-1.65.59-1.97.61-.32.02-1.26-.52-2.27-.67-.65-.12-1.33.13-1.82.33-.49.2-1.42.75-2.07 2.24-.65 1.48-.31 3.83-.07 4.56.24.73.62 1.92 1.27 2.8.58.98 1.34 1.66 1.66 1.9.32.23 1.22.38 1.84.06.51-.3 1.41-.48 1.77-.47.36.02 1.06.16 1.78.54.57.2 1.11.12 1.65-.1.54-.22 1.32-1.06 2.24-2.76.35-.79.51-1.22.48-1.29Z" />
+    </svg>
+  );
+}
 
 function RotatingScrollIndicator() {
   const indicatorRef = useRef<HTMLAnchorElement>(null);
@@ -384,15 +400,15 @@ export default function Page() {
 
           <div className="authChoices">
             <button type="button">
-              <Chrome size={22} strokeWidth={2.5} />
-              Entrar com Chrome
+              <ChromeMark />
+              <span>Entrar com Chrome</span>
             </button>
             <button type="button">
-              <Apple size={22} strokeWidth={2.5} />
-              Entrar com Apple
+              <AppleMark />
+              <span>Entrar com Apple</span>
             </button>
             <a className="manualButton" href="#signup-modal">
-              Cadastro manual
+              <span>Cadastro manual</span>
               <ArrowUpRight size={22} strokeWidth={2.5} />
             </a>
           </div>
