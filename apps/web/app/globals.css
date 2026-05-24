@@ -756,10 +756,11 @@ h2 {
   height: 24px;
   flex: 0 0 24px;
   place-items: center;
+  object-fit: contain;
 }
 
 .chromeMark {
-  overflow: visible;
+  display: block;
 }
 
 .appleMark {

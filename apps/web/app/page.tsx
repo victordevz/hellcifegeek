@@ -150,12 +150,7 @@ const products = [
 
 function ChromeMark() {
   return (
-    <svg className="brandIcon chromeMark" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="#fbbc05" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M12 12 6.85 3.08A10 10 0 0 1 21.3 9H12Z" fill="#ea4335" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M12 12h10a10 10 0 0 1-15.15 8.55Z" fill="#34a853" stroke="currentColor" strokeWidth="1.4" />
-      <circle cx="12" cy="12" r="4.2" fill="#4285f4" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
+    <img className="brandIcon chromeMark" src="/chrome.png" alt="" aria-hidden="true" />
   );
 }
 
