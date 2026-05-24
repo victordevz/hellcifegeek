@@ -49,18 +49,21 @@ button {
   left: 18px;
   right: 18px;
   display: grid;
-  grid-template-columns: 120px 1fr 120px;
+  grid-template-columns: 1fr 120px;
   align-items: center;
   pointer-events: none;
 }
 
-.logo,
 .socials,
 .navPill {
   pointer-events: auto;
 }
 
 .logo {
+  position: fixed;
+  z-index: 30;
+  top: 18px;
+  left: 18px;
   display: inline-flex;
   width: fit-content;
   border: 2px solid var(--black);
@@ -762,6 +765,11 @@ h2 {
     left: 10px;
     right: 10px;
     top: 10px;
+  }
+
+  .logo {
+    top: 10px;
+    left: 10px;
   }
 
   .navPill {

@@ -254,8 +254,8 @@ export default function Page() {
 
   return (
     <main>
+      <a className="logo" href="#top">HCG</a>
       <nav className="nav">
-        <a className="logo" href="#top">HCG</a>
         <div className="navPill" aria-label="Primary navigation">
           {navItems.map((item) => (
             <a key={item.label} href={item.href}>{item.label}</a>
