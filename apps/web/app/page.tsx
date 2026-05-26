@@ -778,7 +778,13 @@ export default function Page() {
       </nav>
 
       <section id="top" className="hero">
-        <div className="heroCode">MKP-RED / TWO-SIDED SYSTEM / RECIFE-BR</div>
+        <div className="heroCode" aria-label="Frete gratis e pronta entrega em Recife">
+          <div className="heroCodeTrack">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <span key={index}>Frete gratis / pronta entrega a partir de R$50 em Recife</span>
+            ))}
+          </div>
+        </div>
         <HeroHeadline />
         <div className="heroMeta">
           <div>

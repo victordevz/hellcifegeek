@@ -167,10 +167,32 @@ button {
 }
 
 .heroCode {
-  width: fit-content;
+  width: min(660px, 100%);
+  overflow: hidden;
   border: 2px solid var(--black);
-  padding: 10px 12px;
+  padding: 10px 0;
   font-size: 13px;
+  white-space: nowrap;
+}
+
+.heroCodeTrack {
+  display: flex;
+  width: max-content;
+  animation: marquee 18s linear infinite;
+}
+
+.heroCodeTrack span {
+  padding: 0 18px;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 h1,
