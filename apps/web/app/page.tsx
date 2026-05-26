@@ -1,7 +1,9 @@
 "use client";
 
 import gsap from "gsap";
-import { ArrowUp, ArrowUpRight, X } from "lucide-react";
+import type { FormEvent } from "react";
+import { ArrowUp, ArrowUpRight, Eye, EyeOff, Minus, Plus, ShoppingCart, Trash2, UserRound, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
@@ -30,127 +32,95 @@ const services = [
 const navItems = [
   { label: "Home", href: "#top" },
   { label: "Produtos", href: "#work" },
-  { label: "Catalogo", href: "#services" },
-  { label: "Contato", href: "#contact" }
+  { label: "Promo", href: "#contact" }
 ];
 
-const categories = ["All", "Recommended", "Availability", "SKU", "Talent", "On-demand", "Directory"];
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
+const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+5581981472018").replace(/\D/g, "");
 const productsPerPage = 6;
+const cartStorageKey = "hellcifegeek.cart";
+const phoneCouponCode = "CELULAR5";
+const phoneCouponDiscountRate = 0.05;
 
-const products = [
-  {
-    title: "Rental Slot OS",
-    category: "Availability",
-    price: "R$ 18K",
-    status: "Live logic",
-    image: "https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=900&q=80",
-    recommended: true,
-    tags: ["Calendar", "Fees", "Policy"]
-  },
-  {
-    title: "Creator Proposal Desk",
-    category: "Talent",
-    price: "R$ 24K",
-    status: "Milestones",
-    image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80",
-    recommended: true,
-    tags: ["Profiles", "Chat", "Escrow"]
-  },
-  {
-    title: "Hard Goods Grid",
-    category: "SKU",
-    price: "R$ 16K",
-    status: "Cart ready",
-    image: "https://images.unsplash.com/photo-1557821552-17105176677c?auto=format&fit=crop&w=900&q=80",
-    recommended: false,
-    tags: ["Variants", "Shipping", "Compare"]
-  },
-  {
-    title: "Fast Dispatch Layer",
-    category: "On-demand",
-    price: "R$ 21K",
-    status: "ETA first",
-    image: "https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=900&q=80",
-    recommended: true,
-    tags: ["ETA", "Distance", "Fees"]
-  },
-  {
-    title: "Vendor Proof Matrix",
-    category: "Directory",
-    price: "R$ 14K",
-    status: "Lead capture",
-    image: "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=900&q=80",
-    recommended: false,
-    tags: ["Reviews", "Matrix", "Contact"]
-  },
-  {
-    title: "Event Booth Market",
-    category: "Availability",
-    price: "R$ 19K",
-    status: "Conflict safe",
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=900&q=80",
-    recommended: false,
-    tags: ["Slots", "Map", "Cancel"]
-  },
-  {
-    title: "Akiba Import Shelf",
-    category: "SKU",
-    price: "R$ 12K",
-    status: "Stock sync",
-    image: "https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?auto=format&fit=crop&w=900&q=80",
-    recommended: true,
-    tags: ["Figures", "Manga", "Drops"]
-  },
-  {
-    title: "Rare Figure Queue",
-    category: "On-demand",
-    price: "R$ 17K",
-    status: "Drop alert",
-    image: "https://images.unsplash.com/photo-1608889476561-6242cfdbf622?auto=format&fit=crop&w=900&q=80",
-    recommended: false,
-    tags: ["Queue", "ETA", "Notify"]
-  },
-  {
-    title: "Cosplay Maker Board",
-    category: "Talent",
-    price: "R$ 20K",
-    status: "Quote flow",
-    image: "https://images.unsplash.com/photo-1608889825205-eebdb9fc5806?auto=format&fit=crop&w=900&q=80",
-    recommended: false,
-    tags: ["Brief", "Proof", "Chat"]
-  },
-  {
-    title: "Japan Club Finder",
-    category: "Directory",
-    price: "R$ 11K",
-    status: "Lead ready",
-    image: "https://images.unsplash.com/photo-1528164344705-47542687000d?auto=format&fit=crop&w=900&q=80",
-    recommended: true,
-    tags: ["Clubs", "Reviews", "Map"]
-  },
-  {
-    title: "Booth Reserve Flow",
-    category: "Availability",
-    price: "R$ 23K",
-    status: "Calendar lock",
-    image: "https://images.unsplash.com/photo-1578898887932-dce23a595ad4?auto=format&fit=crop&w=900&q=80",
-    recommended: false,
-    tags: ["Events", "Slots", "Fees"]
-  },
-  {
-    title: "Preorder Cart Core",
-    category: "SKU",
-    price: "R$ 15K",
-    status: "Preorder safe",
-    image: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=900&q=80",
-    recommended: true,
-    tags: ["Deposit", "Tax", "Ship"]
+type ApiCategory = {
+  id: string;
+  name: string;
+};
+
+type ApiProduct = {
+  id: string;
+  name: string;
+  description?: string;
+  priceCents: number;
+  stock: number;
+  currency: "BRL";
+  photoUrl: string;
+  photoUrls?: string[];
+  tags: string[];
+  categoryId: string;
+  active: boolean;
+  recommended?: boolean;
+};
+
+type AuthUser = {
+  id: string;
+  name?: string;
+  email: string;
+  phone?: string;
+  role: "admin" | "client";
+};
+
+type CartItem = {
+  productId: string;
+  quantity: number;
+};
+
+function formatPrice(product: ApiProduct) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: product.currency
+  }).format(product.priceCents / 100);
+}
+
+function formatCents(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(value / 100);
+}
+
+function productImages(product: ApiProduct) {
+  const images = product.photoUrls?.length ? product.photoUrls : [product.photoUrl];
+  return images.filter(Boolean);
+}
+
+function stockFor(product: ApiProduct) {
+  return Math.max(0, Math.floor(Number(product.stock ?? 0)));
+}
+
+function stockLabel(product: ApiProduct) {
+  const stock = stockFor(product);
+
+  if (!product.active || stock === 0) {
+    return "Indisponivel";
   }
-];
+
+  return stock <= 5 ? "Estoque limitado" : `${stock} em estoque`;
+}
+
+function whatsappUrl(message: string) {
+  const baseUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : "https://wa.me/";
+  return `${baseUrl}?text=${encodeURIComponent(message)}`;
+}
 
 function ChromeMark() {
   return (
-    <img className="brandIcon chromeMark" src="/chrome2.png" alt="" aria-hidden="true" />
+    <svg className="brandIcon googleMark" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12.16 10.2v4.15h5.78c-.25 1.34-1 2.47-2.12 3.23v2.69h3.44c2.02-1.87 3.18-4.62 3.18-7.88 0-.75-.07-1.48-.2-2.19H12.16Z" />
+      <path d="M6.14 14.18 5.36 14.78 2.61 16.92C4.36 20.39 7.95 22.8 12.16 22.8c2.89 0 5.31-.95 7.1-2.53l-3.44-2.69c-.95.64-2.17 1.02-3.66 1.02-2.79 0-5.15-1.88-5.99-4.42h-.03Z" />
+      <path d="M2.61 7.08A10.62 10.62 0 0 0 1.48 12c0 1.77.42 3.45 1.13 4.92l3.56-2.74A6.38 6.38 0 0 1 5.83 12c0-.76.13-1.49.34-2.18L2.61 7.08Z" />
+      <path d="M12.16 5.4c1.57 0 2.98.54 4.09 1.6l3.08-3.08C17.47 2.17 15.05 1.2 12.16 1.2 7.95 1.2 4.36 3.61 2.61 7.08l3.56 2.74c.84-2.54 3.2-4.42 5.99-4.42Z" />
+    </svg>
   );
 }
 
@@ -234,14 +204,45 @@ function HeroHeadline() {
   return (
     <div className="heroHeadline" aria-label="HELLCIFE GEEK">
       <h1 className="mainHeadline">HELLCIFE GEEK</h1>
-      <h1 className="altHeadline" aria-hidden="true">FIGURES ORIGINAIS</h1>
+      <h1 className="altHeadline" aria-hidden="true">DROP POKEMON</h1>
     </div>
   );
 }
 
 export default function Page() {
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("All");
   const [visibleCount, setVisibleCount] = useState(productsPerPage);
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountPhone, setAccountPhone] = useState("");
+  const [accountMessage, setAccountMessage] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [couponMessage, setCouponMessage] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ApiProduct | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [productQuantity, setProductQuantity] = useState(1);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartLoaded, setCartLoaded] = useState(false);
+  const [cartMessage, setCartMessage] = useState("");
+  const loginModalRef = useRef<HTMLDivElement>(null);
+  const signupModalRef = useRef<HTMLDivElement>(null);
+  const categoriesById = useMemo(() => {
+    return new Map(categories.map((category) => [category.id, category.name]));
+  }, [categories]);
+  const filterOptions = useMemo(() => {
+    return ["All", "Recommended", ...categories.map((category) => category.name)];
+  }, [categories]);
   const visibleProducts = useMemo(() => {
     if (activeCategory === "All") {
       return products;
@@ -251,14 +252,500 @@ export default function Page() {
       return products.filter((product) => product.recommended);
     }
 
-    return products.filter((product) => product.category === activeCategory);
-  }, [activeCategory]);
+    return products.filter((product) => categoriesById.get(product.categoryId) === activeCategory);
+  }, [activeCategory, categoriesById, products]);
   const displayedProducts = visibleProducts.slice(0, visibleCount);
   const canShowMore = visibleCount < visibleProducts.length;
+  const productsById = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product]));
+  }, [products]);
+  const cartLines = cartItems
+    .map((item) => {
+      const product = productsById.get(item.productId);
+      return product ? { item, product } : null;
+    })
+    .filter((line): line is { item: CartItem; product: ApiProduct } => Boolean(line));
+  const cartCount = cartLines.reduce((total, line) => total + line.item.quantity, 0);
+  const cartTotalCents = cartLines.reduce((total, line) => total + line.product.priceCents * line.item.quantity, 0);
+  const hasPhoneCoupon = Boolean(currentUser?.phone);
+  const couponDiscountCents = appliedCouponCode === phoneCouponCode ? Math.round(cartTotalCents * phoneCouponDiscountRate) : 0;
+  const cartFinalTotalCents = Math.max(0, cartTotalCents - couponDiscountCents);
 
   function selectCategory(category: string) {
     setActiveCategory(category);
     setVisibleCount(productsPerPage);
+  }
+
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const authToken = hashParams.get("auth_token");
+    const authUser = hashParams.get("auth_user");
+    const authError = hashParams.get("auth_error");
+
+    if (authToken && authUser) {
+      localStorage.setItem("hellcifegeek.token", authToken);
+      localStorage.setItem("hellcifegeek.user", authUser);
+      const parsedUser = JSON.parse(authUser) as AuthUser;
+      setCurrentUser(parsedUser);
+      setAccountPhone(parsedUser.phone ?? "");
+      setAuthMessage("Login Google realizado.");
+      setAuthModal(null);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    } else if (authError) {
+      setAuthMessage(`Login Google falhou: ${authError}`);
+      setAuthModal("login");
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+
+    const storedUser = localStorage.getItem("hellcifegeek.user");
+
+    if (!authToken && storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser) as AuthUser;
+        setCurrentUser(parsedUser);
+        setAccountPhone(parsedUser.phone ?? "");
+      } catch {
+        localStorage.removeItem("hellcifegeek.user");
+        localStorage.removeItem("hellcifegeek.token");
+      }
+    }
+
+    let isMounted = true;
+
+    async function loadProducts() {
+      try {
+        const [productsResponse, categoriesResponse] = await Promise.all([
+          fetch(`${apiUrl}/products?active=true`, { cache: "no-store" }),
+          fetch(`${apiUrl}/categories`, { cache: "no-store" })
+        ]);
+
+        if (!productsResponse.ok || !categoriesResponse.ok) {
+          throw new Error("API indisponivel");
+        }
+
+        const [productsData, categoriesData] = await Promise.all([
+          productsResponse.json() as Promise<ApiProduct[]>,
+          categoriesResponse.json() as Promise<ApiCategory[]>
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setProducts(productsData);
+        setCategories(categoriesData);
+        setProductsError("");
+      } catch {
+        if (isMounted) {
+          setProducts([]);
+          setProductsError("Nao foi possivel carregar os produtos agora.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsProductsLoading(false);
+        }
+      }
+    }
+
+    void loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const storedCart = localStorage.getItem(cartStorageKey);
+
+      if (storedCart) {
+        const parsedCart = JSON.parse(storedCart) as CartItem[];
+        setCartItems(Array.isArray(parsedCart) ? parsedCart : []);
+      }
+    } catch {
+      setCartItems([]);
+    } finally {
+      setCartLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (cartLoaded) {
+      localStorage.setItem(cartStorageKey, JSON.stringify(cartItems));
+    }
+  }, [cartItems, cartLoaded]);
+
+  useEffect(() => {
+    if (!cartLoaded || isProductsLoading) {
+      return;
+    }
+
+    setCartItems((currentItems) => currentItems.filter((item) => productsById.has(item.productId)));
+  }, [cartLoaded, isProductsLoading, productsById]);
+
+  useEffect(() => {
+    if (!hasPhoneCoupon && appliedCouponCode === phoneCouponCode) {
+      setAppliedCouponCode("");
+      setCouponMessage("");
+    }
+  }, [appliedCouponCode, hasPhoneCoupon]);
+
+  function getAuthModalElement(modal = authModal) {
+    if (modal === "login") {
+      return loginModalRef.current;
+    }
+
+    if (modal === "signup") {
+      return signupModalRef.current;
+    }
+
+    return null;
+  }
+
+  function animateAuthIn(modal: HTMLElement) {
+    const panel = modal.querySelector(".authModal");
+
+    if (!panel) {
+      return;
+    }
+
+    gsap.killTweensOf([modal, panel]);
+    gsap.set(modal, { display: "grid", autoAlpha: 0 });
+    gsap.set(panel, { autoAlpha: 0, y: 26, scale: 0.96 });
+    gsap.to(modal, { autoAlpha: 1, duration: 0.18, ease: "power2.out" });
+    gsap.to(panel, { autoAlpha: 1, y: 0, scale: 1, duration: 0.38, ease: "power3.out" });
+  }
+
+  function animateAuthOut(modal: HTMLElement, onComplete?: () => void) {
+    const panel = modal.querySelector(".authModal");
+
+    if (!panel) {
+      onComplete?.();
+      return;
+    }
+
+    gsap.killTweensOf([modal, panel]);
+    gsap.to(panel, { autoAlpha: 0, y: -14, scale: 0.98, duration: 0.18, ease: "power2.in" });
+    gsap.to(modal, {
+      autoAlpha: 0,
+      duration: 0.22,
+      ease: "power2.in",
+      onComplete: () => {
+        gsap.set(modal, { clearProps: "display,opacity,visibility" });
+        onComplete?.();
+      }
+    });
+  }
+
+  function openAuthModal(nextModal: "login" | "signup") {
+    setAuthMessage("");
+
+    if (!authModal || authModal === nextModal) {
+      setAuthModal(nextModal);
+      return;
+    }
+
+    const currentModal = getAuthModalElement();
+
+    if (!currentModal) {
+      setAuthModal(nextModal);
+      return;
+    }
+
+    animateAuthOut(currentModal, () => setAuthModal(nextModal));
+  }
+
+  function closeAuthModal() {
+    const currentModal = getAuthModalElement();
+
+    if (!currentModal) {
+      setAuthModal(null);
+      return;
+    }
+
+    animateAuthOut(currentModal, () => {
+      setAuthModal(null);
+      setAuthMessage("");
+    });
+  }
+
+  useEffect(() => {
+    const currentModal = getAuthModalElement();
+
+    if (currentModal) {
+      animateAuthIn(currentModal);
+    }
+  }, [authModal]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeAuthModal();
+        setSelectedProduct(null);
+        setCartOpen(false);
+        setAccountOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [authModal]);
+
+  function openProduct(product: ApiProduct) {
+    setSelectedProduct(product);
+    setSelectedImageIndex(0);
+    setProductQuantity(1);
+    setCartMessage("");
+  }
+
+  function changeProductQuantity(nextQuantity: number) {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const maxQuantity = Math.max(1, stockFor(selectedProduct));
+    setProductQuantity(Math.min(maxQuantity, Math.max(1, nextQuantity)));
+  }
+
+  function quantityInCart(productId: string) {
+    return cartItems.find((item) => item.productId === productId)?.quantity ?? 0;
+  }
+
+  function addToCart(product: ApiProduct, quantity = 1) {
+    const stock = stockFor(product);
+
+    if (!product.active || stock <= 0) {
+      setCartMessage("Produto indisponivel.");
+      return false;
+    }
+
+    setCartItems((currentItems) => {
+      const existing = currentItems.find((item) => item.productId === product.id);
+      const currentQuantity = existing?.quantity ?? 0;
+      const nextQuantity = Math.min(stock, currentQuantity + quantity);
+
+      if (existing) {
+        return currentItems.map((item) => item.productId === product.id ? { ...item, quantity: nextQuantity } : item);
+      }
+
+      return [...currentItems, { productId: product.id, quantity: Math.max(1, nextQuantity) }];
+    });
+
+    setCartMessage("Produto adicionado ao carrinho.");
+    return true;
+  }
+
+  function updateCartQuantity(productId: string, nextQuantity: number) {
+    const product = productsById.get(productId);
+
+    if (!product) {
+      return;
+    }
+
+    const stock = stockFor(product);
+
+    if (nextQuantity <= 0) {
+      setCartItems((currentItems) => currentItems.filter((item) => item.productId !== productId));
+      return;
+    }
+
+    setCartItems((currentItems) => currentItems.map((item) => (
+      item.productId === productId ? { ...item, quantity: Math.min(stock, nextQuantity) } : item
+    )));
+  }
+
+  function removeFromCart(productId: string) {
+    setCartItems((currentItems) => currentItems.filter((item) => item.productId !== productId));
+  }
+
+  function setSession(user: AuthUser, token: string) {
+    localStorage.setItem("hellcifegeek.token", token);
+    localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
+    setCurrentUser(user);
+    setAccountPhone(user.phone ?? "");
+    setAuthModal(null);
+  }
+
+  function logout() {
+    localStorage.removeItem("hellcifegeek.token");
+    localStorage.removeItem("hellcifegeek.user");
+    setCurrentUser(null);
+    setAccountOpen(false);
+    setAccountPhone("");
+    setAccountMessage("");
+    setCouponCode("");
+    setAppliedCouponCode("");
+    setCouponMessage("");
+  }
+
+  function applyCoupon(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedCoupon = couponCode.trim().toUpperCase();
+
+    if (normalizedCoupon !== phoneCouponCode) {
+      setAppliedCouponCode("");
+      setCouponMessage("Cupom invalido.");
+      return;
+    }
+
+    if (!hasPhoneCoupon) {
+      setAppliedCouponCode("");
+      setCouponMessage("Adicione um celular na conta para liberar este cupom.");
+      return;
+    }
+
+    setAppliedCouponCode(phoneCouponCode);
+    setCouponCode(phoneCouponCode);
+    setCouponMessage("Cupom de 5% aplicado.");
+  }
+
+  async function saveAccountPhone(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAccountMessage("");
+
+    const token = localStorage.getItem("hellcifegeek.token");
+
+    if (!token) {
+      setAccountMessage("Faca login novamente.");
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/me`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ phone: accountPhone })
+    });
+
+    if (!response.ok) {
+      setAccountMessage("Nao foi possivel salvar o celular.");
+      return;
+    }
+
+    const user = await response.json() as AuthUser;
+    localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
+    setCurrentUser(user);
+    setAccountPhone(user.phone ?? "");
+    setAccountMessage(user.phone ? `Celular salvo. Cupom ${phoneCouponCode} liberado.` : "Celular removido.");
+  }
+
+  function openWhatsApp(message: string) {
+    window.open(whatsappUrl(message), "_blank", "noopener,noreferrer");
+  }
+
+  function checkoutProduct(product: ApiProduct, quantity: number) {
+    if (!product.active || stockFor(product) <= 0) {
+      setCartMessage("Produto indisponivel.");
+      return;
+    }
+
+    const message = [
+      "Oi! Tenho interesse em comprar este item da Hellcife Geek:",
+      `${quantity}x ${product.name}`,
+      `Valor: ${formatCents(product.priceCents * quantity)}`,
+      "",
+      "Podemos negociar?"
+    ].join("\n");
+
+    openWhatsApp(message);
+    setCartMessage("Abrindo conversa no WhatsApp.");
+  }
+
+  function checkoutCart() {
+    if (cartLines.length === 0) {
+      setCartMessage("Adicione um item ao carrinho antes de finalizar.");
+      return;
+    }
+
+    const message = [
+      "Oi! Tenho interesse em comprar estes itens da Hellcife Geek:",
+      "",
+      ...cartLines.map((line) => (
+        `- ${line.item.quantity}x ${line.product.name} (${formatCents(line.product.priceCents)} cada) = ${formatCents(line.product.priceCents * line.item.quantity)}`
+      )),
+      "",
+      `Subtotal: ${formatCents(cartTotalCents)}`,
+      ...(couponDiscountCents > 0 ? [`Cupom ${appliedCouponCode}: -${formatCents(couponDiscountCents)}`] : []),
+      `Total: ${formatCents(cartFinalTotalCents)}`,
+      "",
+      "Podemos negociar?"
+    ].join("\n");
+
+    openWhatsApp(message);
+    setCartMessage("Abrindo conversa no WhatsApp.");
+  }
+
+  async function submitManualLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setAuthMessage("");
+
+    let response: Response;
+
+    try {
+      response = await fetch(`${apiUrl}/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password")
+        })
+      });
+    } catch {
+      setAuthMessage("Nao foi possivel conectar ao servidor.");
+      return;
+    }
+
+    if (!response.ok) {
+      setAuthMessage("Email ou senha invalidos.");
+      return;
+    }
+
+    const data = await response.json() as { token: string; user: AuthUser };
+    setSession(data.user, data.token);
+    setAuthMessage("Login realizado.");
+
+    if (data.user.role === "admin") {
+      router.push("/admin");
+    }
+  }
+
+  async function submitManualSignup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setAuthMessage("");
+
+    let response: Response;
+
+    try {
+      response = await fetch(`${apiUrl}/auth/register`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name") || "Cliente Hellcife",
+          email: formData.get("email"),
+          password: formData.get("password"),
+          phone: formData.get("phone")
+        })
+      });
+    } catch {
+      setAuthMessage("Nao foi possivel conectar ao servidor.");
+      return;
+    }
+
+    if (!response.ok) {
+      setAuthMessage("Nao foi possivel cadastrar.");
+      return;
+    }
+
+    const data = await response.json() as { token: string; user: AuthUser };
+    setSession(data.user, data.token);
+    setAuthMessage("Cadastro realizado.");
   }
 
   return (
@@ -269,7 +756,19 @@ export default function Page() {
           {navItems.map((item) => (
             <a key={item.label} href={item.href}>{item.label}</a>
           ))}
-          <a className="loginLink" href="#login-modal" aria-haspopup="dialog">Login</a>
+          {currentUser ? (
+            <button type="button" className="accountLink" onClick={() => setAccountOpen(true)} aria-label="Abrir conta">
+              <UserRound size={16} strokeWidth={3} />
+            </button>
+          ) : (
+            <button type="button" className="loginLink" onClick={() => openAuthModal("login")} aria-haspopup="dialog">
+              Login
+            </button>
+          )}
+          <button type="button" className="cartLink" onClick={() => setCartOpen(true)} aria-label={`Abrir carrinho com ${cartCount} itens`}>
+            <ShoppingCart size={15} strokeWidth={3} />
+            <span>{cartCount}</span>
+          </button>
         </div>
       </nav>
 
@@ -291,39 +790,71 @@ export default function Page() {
 
       <section id="work" className="marketplacePortfolio">
         <div className="filterBar" aria-label="Marketplace filters">
-          {categories.map((category) => (
-            <button key={category} className={activeCategory === category ? "active" : ""} onClick={() => selectCategory(category)}>
-              {category}
-            </button>
-          ))}
+          <div className="filterOptions">
+            {filterOptions.map((category) => (
+              <button key={category} className={activeCategory === category ? "active" : ""} onClick={() => selectCategory(category)}>
+                {category}
+              </button>
+            ))}
+          </div>
+          <strong>DROP POKEMONS</strong>
         </div>
 
         <div className="productGrid">
           {displayedProducts.map((product) => (
-            <article key={product.title} className="productCard">
+            <article
+              key={product.id}
+              className="productCard"
+              role="button"
+              tabIndex={0}
+              onClick={() => openProduct(product)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openProduct(product);
+                }
+              }}
+            >
               <div className="productImage">
-                <img src={product.image} alt={product.title} />
-                {product.recommended && <span>Recommended</span>}
+                <img src={productImages(product)[0]} alt={product.name} />
+                {product.recommended && <span>Recomendado</span>}
               </div>
               <div className="productBody">
                 <div className="productMeta">
-                  <span>{product.category}</span>
-                  <strong>{product.price}</strong>
+                  <span>{categoriesById.get(product.categoryId) ?? "Produto"}</span>
+                  <strong>{formatPrice(product)}</strong>
                 </div>
-                <h3>{product.title}</h3>
+                <h3>{product.name}</h3>
                 <div className="productTags">
                   {product.tags.map((tag) => (
                     <span key={tag}>{tag}</span>
                   ))}
                 </div>
-                <a href="#contact">
-                  <span>{product.status}</span>
+                <button type="button" className="productOpen" onClick={(event) => {
+                  event.stopPropagation();
+                  openProduct(product);
+                }}>
+                  <span>{stockLabel(product)}</span>
                   <ArrowUpRight size={28} strokeWidth={2.5} />
-                </a>
+                </button>
               </div>
             </article>
           ))}
         </div>
+
+        {isProductsLoading && (
+          <div className="emptyProducts">
+            <strong>Carregando produtos.</strong>
+            <span>Buscando catalogo na API.</span>
+          </div>
+        )}
+
+        {!isProductsLoading && displayedProducts.length === 0 && (
+          <div className="emptyProducts">
+            <strong>{productsError || "Nenhum produto cadastrado ainda."}</strong>
+            <span>Quando voce criar produtos no admin, eles aparecem aqui automaticamente.</span>
+          </div>
+        )}
 
         {canShowMore && (
           <button className="loadMore" onClick={() => setVisibleCount((current) => current + productsPerPage)}>
@@ -333,7 +864,7 @@ export default function Page() {
         )}
       </section>
 
-      <section id="services" className="services">
+      <section id="services" className="services isHidden">
         <div className="sectionHead">
           <span>Service list</span>
           <strong>04 operating layers</strong>
@@ -357,20 +888,20 @@ export default function Page() {
       </section>
 
       <section id="contact" className="cta">
-        <p>Ready state / No soft launch</p>
-        <h2>SHIP THE MARKET</h2>
-        <a href="mailto:hello@hellcifegeek.dev">Start the build</a>
+        <p>Cadastre-se e participe</p>
+        <h2>Cupons e Sorteios</h2>
+        <button type="button" onClick={() => openAuthModal("signup")}>Se cadastrar</button>
       </section>
 
       <section className="marqueeSection footerRibbon">
         <div className="marqueeTrack">
           <div className="marqueeLine">
-            <span>DISCOVERY ENGINE • TRUST LAYER • FEE LOGIC • </span>
-            <span>DISCOVERY ENGINE • TRUST LAYER • FEE LOGIC • </span>
+            <span>ACTION FIGURE • BOTTOM • FIGURINHAS • PULSEIRAS • ADESIVOS • COLARES • </span>
+            <span>ACTION FIGURE • BOTTOM • FIGURINHAS • PULSEIRAS • ADESIVOS • COLARES • </span>
           </div>
           <div className="marqueeLine reverse">
-            <span>NO GLASS • NO GRADIENTS • NO GENERIC DASHBOARDS • </span>
-            <span>NO GLASS • NO GRADIENTS • NO GENERIC DASHBOARDS • </span>
+            <span>IMPORTADOS DO JAPAO • DROPS RAROS • PRONTA ENTREGA • </span>
+            <span>IMPORTADOS DO JAPAO • DROPS RAROS • PRONTA ENTREGA • </span>
           </div>
         </div>
       </section>
@@ -384,64 +915,357 @@ export default function Page() {
         </div>
       </footer>
 
-      <div id="login-modal" className="modalOverlay" role="presentation">
+      {selectedProduct && (
+        <div className="productModalOverlay" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setSelectedProduct(null);
+          }
+        }}>
+          <section className="productModal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+            <button type="button" className="closeModal productClose" onClick={() => setSelectedProduct(null)} aria-label="Fechar produto">
+              <X size={22} strokeWidth={3} />
+            </button>
+            <div className="productModalMedia">
+              <div className="productMainImage">
+                <img src={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl} alt={selectedProduct.name} />
+              </div>
+              {productImages(selectedProduct).length > 1 && (
+                <div className="productThumbs" aria-label="Galeria do produto">
+                  {productImages(selectedProduct).map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      className={selectedImageIndex === index ? "active" : ""}
+                      onClick={() => setSelectedImageIndex(index)}
+                      aria-label={`Ver imagem ${index + 1}`}
+                    >
+                      <img src={image} alt="" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="productModalInfo">
+              <div className="productModalMeta">
+                <span>{categoriesById.get(selectedProduct.categoryId) ?? "Produto"}</span>
+                <strong>{formatPrice(selectedProduct)}</strong>
+              </div>
+              <h2 id="product-modal-title">{selectedProduct.name}</h2>
+              {selectedProduct.description && <p>{selectedProduct.description}</p>}
+              <div className="productTags">
+                {selectedProduct.tags.map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+              <div className="stockRow">
+                <span>{stockLabel(selectedProduct)}</span>
+                <strong>{quantityInCart(selectedProduct.id)} no carrinho</strong>
+              </div>
+              <div className="quantityControl" aria-label="Quantidade">
+                <button type="button" onClick={() => changeProductQuantity(productQuantity - 1)} aria-label="Diminuir quantidade">
+                  <Minus size={18} strokeWidth={3} />
+                </button>
+                <strong>{productQuantity}</strong>
+                <button type="button" onClick={() => changeProductQuantity(productQuantity + 1)} aria-label="Aumentar quantidade">
+                  <Plus size={18} strokeWidth={3} />
+                </button>
+              </div>
+              <div className="productModalActions">
+                <button type="button" disabled={!selectedProduct.active || stockFor(selectedProduct) <= 0} onClick={() => checkoutProduct(selectedProduct, productQuantity)}>
+                  Comprar agora
+                </button>
+                <button type="button" disabled={!selectedProduct.active || stockFor(selectedProduct) <= 0} onClick={() => addToCart(selectedProduct, productQuantity)}>
+                  Colocar no carrinho
+                </button>
+              </div>
+              {cartMessage && <p className="cartMessage">{cartMessage}</p>}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {cartOpen && (
+        <div className="cartOverlay" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setCartOpen(false);
+          }
+        }}>
+          <aside className="cartDrawer" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+            <div className="cartHeader">
+              <div>
+                <span>Carrinho</span>
+                <h2 id="cart-title">Seu pedido</h2>
+              </div>
+              <button type="button" className="closeModal" onClick={() => setCartOpen(false)} aria-label="Fechar carrinho">
+                <X size={22} strokeWidth={3} />
+              </button>
+            </div>
+
+            <div className="cartLines">
+              {cartLines.length === 0 && (
+                <div className="cartEmpty">
+                  <strong>Carrinho vazio.</strong>
+                  <span>Abra um produto e adicione ao pedido.</span>
+                </div>
+              )}
+
+              {cartLines.map(({ item, product }) => (
+                <article key={product.id} className="cartLine">
+                  <img src={productImages(product)[0]} alt={product.name} />
+                  <div>
+                    <span>{categoriesById.get(product.categoryId) ?? "Produto"}</span>
+                    <strong>{product.name}</strong>
+                    <small>{formatCents(product.priceCents * item.quantity)}</small>
+                    <div className="cartQty">
+                      <button type="button" onClick={() => updateCartQuantity(product.id, item.quantity - 1)} aria-label="Diminuir item">
+                        <Minus size={15} strokeWidth={3} />
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button type="button" onClick={() => updateCartQuantity(product.id, item.quantity + 1)} aria-label="Aumentar item">
+                        <Plus size={15} strokeWidth={3} />
+                      </button>
+                      <button type="button" onClick={() => removeFromCart(product.id)} aria-label="Remover item">
+                        <Trash2 size={15} strokeWidth={3} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="cartFooter">
+              <form className="cartCoupon" onSubmit={applyCoupon}>
+                <label>
+                  Cupom
+                  <input
+                    value={couponCode}
+                    onChange={(event) => setCouponCode(event.target.value)}
+                    placeholder={hasPhoneCoupon ? phoneCouponCode : "Adicione celular na conta"}
+                  />
+                </label>
+                <button type="submit" disabled={cartLines.length === 0}>Aplicar</button>
+              </form>
+              {couponMessage && <p className="cartMessage">{couponMessage}</p>}
+              <div>
+                <span>Subtotal</span>
+                <strong>{formatCents(cartTotalCents)}</strong>
+              </div>
+              {couponDiscountCents > 0 && (
+                <div>
+                  <span>{appliedCouponCode}</span>
+                  <strong>-{formatCents(couponDiscountCents)}</strong>
+                </div>
+              )}
+              <div>
+                <span>Total</span>
+                <strong>{formatCents(cartFinalTotalCents)}</strong>
+              </div>
+              <button type="button" disabled={cartLines.length === 0} onClick={checkoutCart}>
+                Finalizar compra
+              </button>
+              <button type="button" onClick={() => setCartOpen(false)}>
+                Continuar comprando
+              </button>
+              {cartMessage && <p className="cartMessage">{cartMessage}</p>}
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {accountOpen && currentUser && (
+        <div className="cartOverlay" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setAccountOpen(false);
+          }
+        }}>
+          <aside className="accountDrawer" role="dialog" aria-modal="true" aria-labelledby="account-title">
+            <div className="cartHeader">
+              <div>
+                <span>Conta</span>
+                <h2 id="account-title">Perfil</h2>
+              </div>
+              <button type="button" className="closeModal" onClick={() => setAccountOpen(false)} aria-label="Fechar conta">
+                <X size={22} strokeWidth={3} />
+              </button>
+            </div>
+
+            <div className="accountContent">
+              <div className="accountIdentity">
+                <strong>{currentUser.name || currentUser.email}</strong>
+                <span>{currentUser.email}</span>
+              </div>
+
+              <form className="accountForm" onSubmit={saveAccountPhone}>
+                <label>
+                  Numero de celular
+                  <input
+                    type="tel"
+                    value={accountPhone}
+                    onChange={(event) => setAccountPhone(event.target.value)}
+                    placeholder="(81) 99999-9999"
+                    autoComplete="tel"
+                  />
+                </label>
+                <button type="submit">Salvar celular</button>
+              </form>
+
+              <div className="accountPanel">
+                <span>Cupons disponiveis</span>
+                <strong>{currentUser.phone ? `${phoneCouponCode} - 5% OFF` : "Adicione celular para liberar 5% OFF"}</strong>
+              </div>
+
+              <div className="accountPanel">
+                <span>Hellpoints</span>
+                <strong>0 pontos</strong>
+              </div>
+
+              {accountMessage && <p className="cartMessage">{accountMessage}</p>}
+            </div>
+
+            <div className="cartFooter">
+              <button type="button" onClick={logout}>Sair da conta</button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      <div
+        id="login-modal"
+        ref={loginModalRef}
+        className={`modalOverlay ${authModal === "login" ? "isOpen" : ""}`}
+        role="presentation"
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            closeAuthModal();
+          }
+        }}
+      >
         <section className="authModal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
           <div className="authHeader">
             <div>
               <span>Acesso</span>
               <h2 id="auth-title">Entrar na conta</h2>
             </div>
-            <a className="closeModal" href="#" aria-label="Fechar modal">
+            <button type="button" className="closeModal" onClick={closeAuthModal} aria-label="Fechar modal">
               <X size={22} strokeWidth={3} />
-            </a>
+            </button>
           </div>
 
           <div className="authChoices">
-            <button type="button">
+            <button type="button" onClick={() => window.location.assign("/api/auth/google")}>
               <ChromeMark />
               <span>Entrar com Google</span>
             </button>
-            <button type="button">
+            <button type="button" disabled aria-disabled="true" title="Apple indisponivel temporariamente">
               <AppleMark />
-              <span>Entrar com Apple</span>
+              <span>Apple indisponivel</span>
             </button>
-            <a className="manualButton" href="#signup-modal">
-              <span>Cadastro manual</span>
-              <ArrowUpRight size={22} strokeWidth={2.5} />
-            </a>
-          </div>
-        </section>
-      </div>
-
-      <div id="signup-modal" className="modalOverlay" role="presentation">
-        <section className="authModal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
-          <div className="authHeader">
-            <div>
-              <span>Cadastro manual</span>
-              <h2 id="signup-title">Criar conta</h2>
-            </div>
-            <a className="closeModal" href="#" aria-label="Fechar modal">
-              <X size={22} strokeWidth={3} />
-            </a>
           </div>
 
-          <form className="manualForm">
+          <form className="manualForm" onSubmit={submitManualLogin}>
             <label>
               Email
-              <input type="email" name="email" placeholder="voce@email.com" required />
+              <input type="email" name="email" placeholder="voce@email.com" autoComplete="email" required />
             </label>
             <label>
               Senha
-              <input type="password" name="password" placeholder="Minimo 8 caracteres" minLength={8} required />
+              <span className="passwordField">
+                <input
+                  type={showLoginPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Sua senha"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword((current) => !current)}
+                  aria-label={showLoginPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showLoginPassword ? <EyeOff size={22} strokeWidth={2.6} /> : <Eye size={22} strokeWidth={2.6} />}
+                </button>
+              </span>
+            </label>
+            <div className="authActions">
+              <button type="submit">Entrar</button>
+              <button type="button" onClick={() => openAuthModal("signup")}>Cadastrar</button>
+            </div>
+            {authMessage && <p className="authMessage">{authMessage}</p>}
+          </form>
+        </section>
+      </div>
+
+      <div
+        id="signup-modal"
+        ref={signupModalRef}
+        className={`modalOverlay ${authModal === "signup" ? "isOpen" : ""}`}
+        role="presentation"
+        onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            closeAuthModal();
+          }
+        }}
+      >
+        <section className="authModal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
+          <div className="authHeader">
+            <div>
+              <span>Cadastro</span>
+              <h2 id="signup-title">Criar conta</h2>
+            </div>
+            <button type="button" className="closeModal" onClick={closeAuthModal} aria-label="Fechar modal">
+              <X size={22} strokeWidth={3} />
+            </button>
+          </div>
+
+          <div className="authChoices">
+            <button type="button" onClick={() => window.location.assign("/api/auth/google")}>
+              <ChromeMark />
+              <span>Cadastrar com Google</span>
+            </button>
+            <button type="button" disabled aria-disabled="true" title="Apple indisponivel temporariamente">
+              <AppleMark />
+              <span>Apple indisponivel</span>
+            </button>
+          </div>
+
+          <form className="manualForm" onSubmit={submitManualSignup}>
+            <label>
+              Nome
+              <input type="text" name="name" placeholder="Seu nome" autoComplete="name" required />
+            </label>
+            <label>
+              Email
+              <input type="email" name="email" placeholder="voce@email.com" autoComplete="email" required />
+            </label>
+            <label>
+              Senha
+              <span className="passwordField">
+                <input
+                  type={showSignupPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Minimo 8 caracteres"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSignupPassword((current) => !current)}
+                  aria-label={showSignupPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showSignupPassword ? <EyeOff size={22} strokeWidth={2.6} /> : <Eye size={22} strokeWidth={2.6} />}
+                </button>
+              </span>
             </label>
             <label>
               Numero de celular <span>Opcional</span>
-              <input type="tel" name="phone" placeholder="(81) 99999-9999" />
+              <input type="tel" name="phone" placeholder="(81) 99999-9999" autoComplete="tel" />
             </label>
             <div className="authActions">
-              <a href="#login-modal">Voltar</a>
+              <button type="button" onClick={() => openAuthModal("login")}>Voltar</button>
               <button type="submit">Cadastrar</button>
             </div>
+            {authMessage && <p className="authMessage">{authMessage}</p>}
           </form>
         </section>
       </div>
