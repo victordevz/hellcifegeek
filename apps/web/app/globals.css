@@ -112,7 +112,6 @@ button {
 .navPill button:hover {
   background: var(--red);
   color: var(--black);
-  transform: translateX(4px) scale(1.1);
 }
 
 .loginLink {
@@ -147,7 +146,6 @@ button {
 .accountLink:hover,
 .cartLink:hover {
   background: var(--white);
-  transform: translateX(4px) scale(1.1);
 }
 
 .hero {
@@ -393,7 +391,6 @@ h2 {
   transition: transform 160ms linear, background 160ms linear;
 }
 
-.productCard:hover,
 .productCard:focus-visible {
   background: var(--black);
   color: var(--white);
@@ -421,11 +418,6 @@ h2 {
   object-position: center;
   filter: grayscale(0) contrast(1);
   transition: transform 180ms linear, filter 180ms linear;
-}
-
-.productCard:hover .productImage img {
-  filter: grayscale(1) contrast(1.45);
-  transform: scale(1.03);
 }
 
 .productImage span {
@@ -503,8 +495,21 @@ h2 {
   transition: transform 160ms linear;
 }
 
-.productCard:hover .productBody button svg {
-  transform: rotate(45deg) scale(1.1);
+@media (hover: hover) and (pointer: fine) {
+  .productCard:hover {
+    background: var(--black);
+    color: var(--white);
+    transform: translateX(4px);
+  }
+
+  .productCard:hover .productImage img {
+    filter: grayscale(1) contrast(1.45);
+    transform: scale(1.03);
+  }
+
+  .productCard:hover .productBody button svg {
+    transform: rotate(45deg) scale(1.1);
+  }
 }
 
 .loadMore {
