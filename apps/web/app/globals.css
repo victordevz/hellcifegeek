@@ -1002,28 +1002,54 @@ h2 {
   color: var(--black);
 }
 
+.accountDrawer {
+  width: min(420px, 100%);
+}
+
+.accountDrawer .cartHeader {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.accountDrawer .cartHeader span {
+  margin-bottom: 3px;
+  font-size: 11px;
+}
+
+.accountDrawer .cartHeader h2 {
+  margin-top: 0;
+  font-size: clamp(34px, 4.6vw, 52px);
+  line-height: 0.86;
+}
+
+.accountDrawer .closeModal {
+  width: 48px;
+  height: 48px;
+}
+
 .accountContent {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: 9px;
   overflow: auto;
-  padding: 14px;
+  padding: 10px;
 }
 
 .accountIdentity,
 .accountPanel,
 .accountForm {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   border: 2px solid var(--black);
   background: var(--white);
-  padding: 14px;
+  padding: 11px;
 }
 
 .accountIdentity strong,
 .accountPanel strong {
   font-family: var(--font-archivo), Impact, sans-serif;
-  font-size: 28px;
+  font-size: clamp(22px, 3vw, 30px);
   font-weight: 400;
   letter-spacing: -0.04em;
   line-height: 0.9;
@@ -1043,19 +1069,19 @@ h2 {
 
 .accountIdentity span,
 .accountPanel span {
-  font-size: 12px;
+  font-size: 11px;
   overflow-wrap: anywhere;
 }
 
 .accountForm label {
   display: grid;
-  gap: 8px;
-  font-size: 13px;
+  gap: 7px;
+  font-size: 12px;
 }
 
 .accountForm input {
   width: 100%;
-  min-height: 48px;
+  min-height: 42px;
   border: 2px solid var(--black);
   background: var(--white);
   color: var(--black);
@@ -1070,12 +1096,12 @@ h2 {
 }
 
 .accountForm button {
-  min-height: 48px;
+  min-height: 42px;
   border: 2px solid var(--black);
   border-radius: 999px;
   background: var(--black);
   color: var(--white);
-  font-size: 13px;
+  font-size: 12px;
   transition: color 160ms linear, transform 160ms linear;
 }
 
@@ -1091,7 +1117,7 @@ h2 {
 }
 
 .ticketPanel button {
-  min-height: 46px;
+  min-height: 42px;
   border: 2px solid var(--black);
   border-radius: 999px;
   background: var(--black);
@@ -1102,6 +1128,16 @@ h2 {
   letter-spacing: 0;
   text-transform: uppercase;
   transition: color 160ms linear, transform 160ms linear;
+}
+
+.accountDrawer .cartFooter {
+  gap: 8px;
+  padding: 10px;
+}
+
+.accountDrawer .cartFooter button {
+  min-height: 44px;
+  font-size: 12px;
 }
 
 .ticketPanel button:hover {
