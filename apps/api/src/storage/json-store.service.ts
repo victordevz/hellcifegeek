@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from "@nestjs/common";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Database } from "../domain";
+import { seedDatabase } from "./seed-database";
 
 const emptyDatabase = (): Database => ({
   users: [],
@@ -51,7 +52,7 @@ export class JsonStoreService implements OnModuleInit {
         throw error;
       }
 
-      this.data = emptyDatabase();
+      this.data = structuredClone(seedDatabase);
       await mkdir(dirname(this.filePath), { recursive: true });
       await writeFile(this.filePath, `${JSON.stringify(this.data, null, 2)}\n`, "utf8");
     }
