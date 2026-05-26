@@ -3,7 +3,19 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Hellcife Geek",
-  description: "Red brutalist digital marketplace concept."
+  description: "Loja geek com importados originais diretamente do Japao, Coreia e China.",
+  openGraph: {
+    title: "Hellcife Geek",
+    description: "Loja geek com importados originais diretamente do Japao, Coreia e China.",
+    url: "https://www.hellcifegeek.com",
+    siteName: "Hellcife Geek",
+    type: "website"
+  },
+  twitter: {
+    card: "summary",
+    title: "Hellcife Geek",
+    description: "Loja geek com importados originais diretamente do Japao, Coreia e China."
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
