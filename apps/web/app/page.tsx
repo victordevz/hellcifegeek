@@ -30,9 +30,9 @@ const services = [
 ];
 
 const navItems = [
-  { label: "Home", href: "#top" },
-  { label: "Produtos", href: "#work" },
-  { label: "Promo", href: "#contact" }
+  { label: "Home", targetId: "top" },
+  { label: "Produtos", targetId: "work" },
+  { label: "Promo", targetId: "contact" }
 ];
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
@@ -132,8 +132,8 @@ function AppleMark() {
   );
 }
 
-function RotatingScrollIndicator() {
-  const indicatorRef = useRef<HTMLAnchorElement>(null);
+function RotatingScrollIndicator({ onClick }: { onClick: () => void }) {
+  const indicatorRef = useRef<HTMLButtonElement>(null);
   const arrowRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -184,7 +184,7 @@ function RotatingScrollIndicator() {
   }, []);
 
   return (
-    <a ref={indicatorRef} className="scrollIndicator" href="#work" aria-label="Descer para produtos">
+    <button ref={indicatorRef} type="button" className="scrollIndicator" onClick={onClick} aria-label="Descer para produtos">
       <svg className="scrollText" viewBox="0 0 144 144" aria-hidden="true">
         <defs>
           <path id="scroll-path" d="M72 72 m -53 0 a 53 53 0 1 1 106 0 a 53 53 0 1 1 -106 0" />
@@ -196,7 +196,7 @@ function RotatingScrollIndicator() {
       <span ref={arrowRef} className="scrollArrow">
         <ArrowUp size={34} strokeWidth={2.5} />
       </span>
-    </a>
+    </button>
   );
 }
 
@@ -274,6 +274,11 @@ export default function Page() {
   function selectCategory(category: string) {
     setActiveCategory(category);
     setVisibleCount(productsPerPage);
+  }
+
+  function scrollToSection(targetId: string) {
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
   }
 
   useEffect(() => {
@@ -750,11 +755,11 @@ export default function Page() {
 
   return (
     <main>
-      <a className="logo" href="#top">HCG</a>
+      <button type="button" className="logo" onClick={() => scrollToSection("top")}>HCG</button>
       <nav className="nav">
         <div className="navPill" aria-label="Primary navigation">
           {navItems.map((item) => (
-            <a key={item.label} href={item.href}>{item.label}</a>
+            <button key={item.label} type="button" onClick={() => scrollToSection(item.targetId)}>{item.label}</button>
           ))}
           {currentUser ? (
             <button type="button" className="accountLink" onClick={() => setAccountOpen(true)} aria-label="Abrir conta">
@@ -780,7 +785,7 @@ export default function Page() {
             <span>Based in</span>
             <strong>Recife, Brazil</strong>
           </div>
-          <RotatingScrollIndicator />
+          <RotatingScrollIndicator onClick={() => scrollToSection("work")} />
           <div className="role">
             <span>Importados</span>
             <strong>DROPS DO JAPAO<br />FIGURES RARAS<br />MANGAS E BOTTONS<br />PRONTA ENTREGA</strong>
