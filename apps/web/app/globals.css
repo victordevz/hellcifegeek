@@ -340,9 +340,10 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 128px;
   border-top: 2px solid var(--black);
   border-bottom: 2px solid var(--black);
-  padding: 14px 0;
+  padding: 18px 0;
 }
 
 .filterOptions {
@@ -353,6 +354,7 @@ h2 {
 
 .filterBar strong {
   margin-left: auto;
+  max-width: calc(100% - 460px);
   font-size: clamp(28px, 4.8vw, 78px);
   line-height: 0.85;
   text-align: right;
@@ -2065,10 +2067,12 @@ h2 {
   .filterBar {
     align-items: flex-start;
     flex-direction: column-reverse;
+    min-height: 0;
   }
 
   .filterBar strong {
     margin-left: 0;
+    max-width: 100%;
     text-align: left;
   }
 
