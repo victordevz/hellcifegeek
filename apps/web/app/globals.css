@@ -1084,6 +1084,31 @@ h2 {
   transform: translateX(4px) scale(1.03);
 }
 
+.ticketPanel strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ticketPanel button {
+  min-height: 46px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--font-space), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  transition: color 160ms linear, transform 160ms linear;
+}
+
+.ticketPanel button:hover {
+  color: var(--red);
+  transform: translateX(4px) scale(1.03);
+}
+
 .cartHeader {
   display: flex;
   align-items: flex-start;
@@ -1242,6 +1267,197 @@ h2 {
   font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.hellpointsPage {
+  min-height: 100vh;
+  background: var(--red);
+  color: var(--black);
+  padding: 18px;
+}
+
+.hellpointsTopbar {
+  position: sticky;
+  z-index: 10;
+  top: 14px;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.hellpointsTopbar button,
+.hellpointsTopbar div,
+.hellpointsHero p,
+.hellpointsTicketCard span,
+.hellpointsTicketCard p,
+.hellpointsBuyRow,
+.hellpointsToast {
+  font-family: var(--font-space), monospace;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.hellpointsTopbar button,
+.hellpointsTopbar div {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--black);
+  padding: 0 16px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.22);
+}
+
+.hellpointsTopbar button {
+  transition: color 160ms linear, transform 160ms linear;
+}
+
+.hellpointsTopbar button:hover {
+  color: var(--red);
+  transform: translateX(4px);
+}
+
+.hellpointsTopbar div {
+  display: grid;
+  grid-template-columns: auto auto;
+  font-size: 12px;
+}
+
+.hellpointsTopbar strong {
+  font-size: 16px;
+}
+
+.hellpointsHero {
+  display: grid;
+  gap: 18px;
+  border-top: 2px solid var(--black);
+  border-bottom: 2px solid var(--black);
+  padding: 46px 0 40px;
+}
+
+.hellpointsHero p {
+  width: fit-content;
+  margin: 0;
+  border: 2px solid var(--black);
+  background: var(--white);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.hellpointsHero h1 {
+  max-width: 1120px;
+  font-size: clamp(58px, 11vw, 164px);
+  line-height: 0.82;
+}
+
+.hellpointsStoreGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 18px 0 54px;
+}
+
+.hellpointsTicketCard {
+  display: grid;
+  grid-column: span 2;
+  gap: 20px;
+  border: 2px solid var(--black);
+  background: var(--black);
+  color: var(--white);
+  padding: 18px;
+}
+
+.ticketIcon {
+  display: grid;
+  width: 96px;
+  height: 96px;
+  place-items: center;
+  border: 2px solid var(--red);
+  border-radius: 999px;
+  color: var(--red);
+}
+
+.hellpointsTicketCard h2 {
+  margin-top: 10px;
+  font-size: clamp(44px, 6vw, 86px);
+  line-height: 0.86;
+}
+
+.hellpointsTicketCard p {
+  max-width: 520px;
+  margin: 14px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hellpointsBuyRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 2px solid rgba(255, 255, 255, 0.22);
+  padding-top: 14px;
+}
+
+.hellpointsBuyRow strong {
+  color: var(--red);
+  font-size: 18px;
+}
+
+.hellpointsBuyRow button {
+  min-height: 52px;
+  border: 2px solid var(--red);
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--black);
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: transform 160ms linear;
+}
+
+.hellpointsBuyRow button:hover {
+  transform: translateX(4px) scale(1.04);
+}
+
+.hellpointsBuyRow button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.hellpointsItemCard {
+  display: grid;
+  border: 2px solid var(--black);
+  background: var(--white);
+}
+
+.hellpointsItemCard .productBody button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.hellpointsToast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 80;
+  max-width: min(420px, calc(100vw - 36px));
+  margin: 0;
+  border: 2px solid var(--black);
+  background: var(--white);
+  padding: 14px;
+  font-size: 13px;
 }
 
 .authModal {
@@ -1553,6 +1769,11 @@ h2 {
   color: #b42318;
 }
 
+.adminRowActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .adminWorkspace {
   display: grid;
   gap: 20px;
@@ -1821,7 +2042,8 @@ h2 {
 }
 
 .categoryList,
-.adminProductTable {
+.adminProductTable,
+.adminUserTable {
   display: grid;
   gap: 10px;
 }
@@ -1841,14 +2063,17 @@ h2 {
 }
 
 .categoryList strong,
-.adminProductTable strong {
+.adminProductTable strong,
+.adminUserTable strong {
   display: block;
   color: #111827;
 }
 
 .categoryList span,
 .adminProductTable span,
-.adminProductTable small {
+.adminProductTable small,
+.adminUserTable span,
+.adminUserTable small {
   color: #667085;
 }
 
@@ -1868,6 +2093,25 @@ h2 {
   object-fit: cover;
   border-radius: 8px;
   background: #f2f4f7;
+}
+
+.adminUserTable article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.adminUserTable strong {
+  overflow-wrap: anywhere;
+}
+
+.adminUserTable small {
+  display: block;
+  margin-top: 3px;
 }
 
 .adminStatus {
@@ -1891,6 +2135,11 @@ h2 {
 
 .adminStatus .muted {
   color: #667085;
+}
+
+.adminStatus .danger {
+  background: #fee4e2;
+  color: #b42318;
 }
 
 .adminRowActions {
@@ -2004,8 +2253,13 @@ h2 {
     display: grid;
   }
 
-  .adminProductTable article {
+  .adminProductTable article,
+  .adminUserTable article {
     grid-template-columns: 72px 1fr;
+  }
+
+  .adminUserTable article {
+    grid-template-columns: 1fr;
   }
 
   .adminStatus,
@@ -2028,6 +2282,10 @@ h2 {
 
   .productGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hellpointsStoreGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .productModal {
@@ -2208,6 +2466,33 @@ h2 {
 
   .productGrid {
     grid-template-columns: 1fr;
+  }
+
+  .hellpointsPage {
+    padding: 10px;
+  }
+
+  .hellpointsTopbar {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .hellpointsTopbar button,
+  .hellpointsTopbar div {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .hellpointsHero h1 {
+    font-size: clamp(48px, 18vw, 86px);
+  }
+
+  .hellpointsStoreGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .hellpointsTicketCard {
+    grid-column: auto;
   }
 
   .cartOverlay {

@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Database } from "../domain";
@@ -10,11 +11,26 @@ const emptyDatabase = (): Database => ({
   products: []
 });
 
+type SupabaseStateRow = {
+  id: string;
+  data: Database;
+};
+
 @Injectable()
 export class JsonStoreService implements OnModuleInit {
   private readonly filePath = process.env.API_DB_PATH ?? join(process.cwd(), "data", "db.json");
+  private readonly driver = process.env.API_STORE_DRIVER ?? "json";
+  private readonly supabaseTable = process.env.SUPABASE_STATE_TABLE ?? "app_state";
+  private readonly supabaseStateId = process.env.SUPABASE_STATE_ID ?? "main";
+  private readonly supabaseClient: SupabaseClient | null;
   private data: Database = emptyDatabase();
   private ready: Promise<void> | null = null;
+
+  constructor() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    this.supabaseClient = url && key ? createClient(url, key) : null;
+  }
 
   async onModuleInit() {
     await this.load();
@@ -27,9 +43,14 @@ export class JsonStoreService implements OnModuleInit {
 
   async write(nextData: Database) {
     await this.ensureReady();
-    this.data = structuredClone(nextData);
-    await mkdir(dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, `${JSON.stringify(this.data, null, 2)}\n`, "utf8");
+    this.data = this.normalizeDatabase(nextData);
+
+    if (this.driver === "supabase") {
+      await this.writeSupabase();
+      return structuredClone(this.data);
+    }
+
+    await this.writeJsonFile();
     return structuredClone(this.data);
   }
 
@@ -42,9 +63,14 @@ export class JsonStoreService implements OnModuleInit {
   }
 
   private async load() {
+    if (this.driver === "supabase") {
+      await this.loadSupabase();
+      return;
+    }
+
     try {
       const raw = await readFile(this.filePath, "utf8");
-      this.data = JSON.parse(raw) as Database;
+      this.data = this.normalizeDatabase(JSON.parse(raw) as Database);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
 
@@ -52,9 +78,72 @@ export class JsonStoreService implements OnModuleInit {
         throw error;
       }
 
-      this.data = structuredClone(seedDatabase);
-      await mkdir(dirname(this.filePath), { recursive: true });
-      await writeFile(this.filePath, `${JSON.stringify(this.data, null, 2)}\n`, "utf8");
+      this.data = this.normalizeDatabase(seedDatabase);
+      await this.writeJsonFile();
     }
+  }
+
+  private async loadSupabase() {
+    const client = this.requireSupabaseClient();
+    const { data, error } = await client
+      .from(this.supabaseTable)
+      .select("id,data")
+      .eq("id", this.supabaseStateId)
+      .maybeSingle<SupabaseStateRow>();
+
+    if (error) {
+      throw new Error(`Falha ao ler Supabase state: ${error.message}`);
+    }
+
+    if (data?.data) {
+      this.data = this.normalizeDatabase(data.data);
+      return;
+    }
+
+    this.data = this.normalizeDatabase(seedDatabase);
+    await this.writeSupabase();
+  }
+
+  private async writeSupabase() {
+    const client = this.requireSupabaseClient();
+    const { error } = await client
+      .from(this.supabaseTable)
+      .upsert({
+        id: this.supabaseStateId,
+        data: this.data,
+        updated_at: new Date().toISOString()
+      });
+
+    if (error) {
+      throw new Error(`Falha ao gravar Supabase state: ${error.message}`);
+    }
+  }
+
+  private async writeJsonFile() {
+    await mkdir(dirname(this.filePath), { recursive: true });
+    await writeFile(this.filePath, `${JSON.stringify(this.data, null, 2)}\n`, "utf8");
+  }
+
+  private requireSupabaseClient() {
+    if (!this.supabaseClient) {
+      throw new Error("API_STORE_DRIVER=supabase exige SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY");
+    }
+
+    return this.supabaseClient;
+  }
+
+  private normalizeDatabase(database: Database) {
+    const nextData = structuredClone(database ?? emptyDatabase());
+
+    nextData.users = Array.isArray(nextData.users) ? nextData.users.map((user) => ({
+      ...user,
+      hellpoints: Math.max(0, Math.floor(Number(user.hellpoints ?? 0))),
+      raffleTickets: Math.max(0, Math.floor(Number(user.raffleTickets ?? 0))),
+      banned: Boolean(user.banned)
+    })) : [];
+    nextData.categories = Array.isArray(nextData.categories) ? nextData.categories : [];
+    nextData.products = Array.isArray(nextData.products) ? nextData.products : [];
+
+    return nextData;
   }
 }

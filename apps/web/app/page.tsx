@@ -2,7 +2,7 @@
 
 import gsap from "gsap";
 import type { FormEvent } from "react";
-import { ArrowUp, ArrowUpRight, Eye, EyeOff, Minus, Plus, ShoppingCart, Trash2, UserRound, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -68,6 +68,8 @@ type AuthUser = {
   email: string;
   phone?: string;
   role: "admin" | "client";
+  hellpoints?: number;
+  raffleTickets?: number;
 };
 
 type CartItem = {
@@ -87,6 +89,14 @@ function formatCents(value: number) {
     style: "currency",
     currency: "BRL"
   }).format(value / 100);
+}
+
+function formatHellpoints(value: unknown) {
+  return new Intl.NumberFormat("pt-BR").format(Math.max(0, Math.floor(Number(value ?? 0))));
+}
+
+function cashbackFor(totalCents: number) {
+  return Math.round(totalCents / 100) * 10;
 }
 
 function productImages(product: ApiProduct) {
@@ -270,6 +280,7 @@ export default function Page() {
   const hasPhoneCoupon = Boolean(currentUser?.phone);
   const couponDiscountCents = appliedCouponCode === phoneCouponCode ? Math.round(cartTotalCents * phoneCouponDiscountRate) : 0;
   const cartFinalTotalCents = Math.max(0, cartTotalCents - couponDiscountCents);
+  const cartCashback = cashbackFor(cartFinalTotalCents);
 
   function selectCategory(category: string) {
     setActiveCategory(category);
@@ -353,6 +364,7 @@ export default function Page() {
     }
 
     void loadProducts();
+    void refreshCurrentUser();
 
     return () => {
       isMounted = false;
@@ -586,6 +598,60 @@ export default function Page() {
     setCouponMessage("");
   }
 
+  async function refreshCurrentUser() {
+    const token = localStorage.getItem("hellcifegeek.token");
+
+    if (!token) {
+      return null;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/me`, {
+      headers: { authorization: `Bearer ${token}` },
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const user = await response.json() as AuthUser;
+    localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
+    setCurrentUser(user);
+    setAccountPhone(user.phone ?? "");
+    return user;
+  }
+
+  async function registerCashback(totalCents: number) {
+    const token = localStorage.getItem("hellcifegeek.token");
+
+    if (!token || totalCents <= 0) {
+      return 0;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/auth/me/hellpoints/cashback`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ totalCents })
+      });
+
+      if (!response.ok) {
+        return 0;
+      }
+
+      const data = await response.json() as { user: AuthUser; cashback: number };
+      localStorage.setItem("hellcifegeek.user", JSON.stringify(data.user));
+      setCurrentUser(data.user);
+      setAccountPhone(data.user.phone ?? "");
+      return data.cashback;
+    } catch {
+      return 0;
+    }
+  }
+
   function applyCoupon(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedCoupon = couponCode.trim().toUpperCase();
@@ -643,25 +709,29 @@ export default function Page() {
     window.open(whatsappUrl(message), "_blank", "noopener,noreferrer");
   }
 
-  function checkoutProduct(product: ApiProduct, quantity: number) {
+  async function checkoutProduct(product: ApiProduct, quantity: number) {
     if (!product.active || stockFor(product) <= 0) {
       setCartMessage("Produto indisponivel.");
       return;
     }
 
+    const totalCents = product.priceCents * quantity;
+    const expectedCashback = cashbackFor(totalCents);
+    const creditedCashback = await registerCashback(totalCents);
     const message = [
       "Oi! Tenho interesse em comprar este item da Hellcife Geek:",
       `${quantity}x ${product.name}`,
-      `Valor: ${formatCents(product.priceCents * quantity)}`,
+      `Valor: ${formatCents(totalCents)}`,
+      `Cashback Hellpoints: ${expectedCashback} pontos`,
       "",
       "Podemos negociar?"
     ].join("\n");
 
     openWhatsApp(message);
-    setCartMessage("Abrindo conversa no WhatsApp.");
+    setCartMessage(creditedCashback > 0 ? `Abrindo conversa. ${creditedCashback} hellpoints adicionados.` : "Abrindo conversa no WhatsApp.");
   }
 
-  function checkoutCart() {
+  async function checkoutCart() {
     if (cartLines.length === 0) {
       setCartMessage("Adicione um item ao carrinho antes de finalizar.");
       return;
@@ -677,12 +747,14 @@ export default function Page() {
       `Subtotal: ${formatCents(cartTotalCents)}`,
       ...(couponDiscountCents > 0 ? [`Cupom ${appliedCouponCode}: -${formatCents(couponDiscountCents)}`] : []),
       `Total: ${formatCents(cartFinalTotalCents)}`,
+      `Cashback Hellpoints: ${cartCashback} pontos`,
       "",
       "Podemos negociar?"
     ].join("\n");
 
+    const creditedCashback = await registerCashback(cartFinalTotalCents);
     openWhatsApp(message);
-    setCartMessage("Abrindo conversa no WhatsApp.");
+    setCartMessage(creditedCashback > 0 ? `Abrindo conversa. ${creditedCashback} hellpoints adicionados.` : "Abrindo conversa no WhatsApp.");
   }
 
   async function submitManualLogin(event: FormEvent<HTMLFormElement>) {
@@ -770,6 +842,7 @@ export default function Page() {
               Login
             </button>
           )}
+          <button type="button" onClick={() => router.push("/hellpoints")}>Hellpoints</button>
           <button type="button" className="cartLink" onClick={() => setCartOpen(true)} aria-label={`Abrir carrinho com ${cartCount} itens`}>
             <ShoppingCart size={15} strokeWidth={3} />
             <span>{cartCount}</span>
@@ -1127,7 +1200,13 @@ export default function Page() {
 
               <div className="accountPanel">
                 <span>Hellpoints</span>
-                <strong>0 pontos</strong>
+                <strong>{formatHellpoints(currentUser.hellpoints)} pontos</strong>
+              </div>
+
+              <div className="accountPanel ticketPanel">
+                <span>Tickets sorteio</span>
+                <strong><Ticket size={24} strokeWidth={3} /> {formatHellpoints(currentUser.raffleTickets)}x tickets</strong>
+                <button type="button" onClick={() => router.push("/hellpoints")}>Loja Hellpoints</button>
               </div>
 
               {accountMessage && <p className="cartMessage">{accountMessage}</p>}

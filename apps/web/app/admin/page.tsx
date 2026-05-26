@@ -31,6 +31,18 @@ type StoredUser = {
   role?: string;
 };
 
+type AdminUser = {
+  id: string;
+  name?: string;
+  email: string;
+  phone?: string;
+  role: "admin" | "client";
+  hellpoints?: number;
+  raffleTickets?: number;
+  banned?: boolean;
+  createdAt: string;
+};
+
 type ProductForm = {
   id?: string;
   name: string;
@@ -75,12 +87,17 @@ function tagsToText(tags: string[]) {
   return tags.join(", ");
 }
 
+function formatNumber(value: unknown) {
+  return new Intl.NumberFormat("pt-BR").format(Math.max(0, Math.floor(Number(value ?? 0))));
+}
+
 export default function AdminPage() {
   const [email, setEmail] = useState("admin@hellcifegeek.com.br");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -92,11 +109,12 @@ export default function AdminPage() {
   const activeProducts = products.filter((product) => product.active).length;
   const recommendedProducts = products.filter((product) => product.recommended).length;
   const totalStock = products.reduce((total, product) => total + product.stock, 0);
+  const clientUsers = users.filter((user) => user.role === "client");
 
-  function authHeaders() {
+  function authHeaders(authToken = token) {
     return {
       "content-type": "application/json",
-      authorization: `Bearer ${token}`
+      authorization: `Bearer ${authToken}`
     };
   }
 
@@ -116,8 +134,27 @@ export default function AdminPage() {
     }));
   }
 
-  async function loadAdminData() {
-    await Promise.all([loadProducts(), loadCategories()]);
+  async function loadUsers(authToken = token) {
+    if (!authToken) {
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/admin/users`, {
+      headers: authHeaders(authToken),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      setMessage("Nao foi possivel carregar os usuarios.");
+      return;
+    }
+
+    const data = (await response.json()) as AdminUser[];
+    setUsers(data);
+  }
+
+  async function loadAdminData(authToken = token) {
+    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken)]);
   }
 
   useEffect(() => {
@@ -131,7 +168,7 @@ export default function AdminPage() {
 
     setToken(storedToken);
     setMessage("Admin conectado.");
-    void loadAdminData();
+    void loadAdminData(storedToken);
   }, []);
 
   async function login(event: FormEvent<HTMLFormElement>) {
@@ -156,7 +193,7 @@ export default function AdminPage() {
       localStorage.setItem("hellcifegeek.user", JSON.stringify(data.user));
       setToken(data.token);
       setMessage("Admin conectado.");
-      await loadAdminData();
+      await loadAdminData(data.token);
     } finally {
       setIsLoading(false);
     }
@@ -168,6 +205,7 @@ export default function AdminPage() {
     setToken("");
     setProducts([]);
     setCategories([]);
+    setUsers([]);
     setMessage("Sessao encerrada.");
   }
 
@@ -377,6 +415,53 @@ export default function AdminPage() {
     await loadProducts();
   }
 
+  async function toggleUserBan(user: AdminUser) {
+    if (user.role === "admin") {
+      setMessage("Nao e permitido banir conta admin.");
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/admin/users/${user.id}/ban`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ banned: !user.banned })
+    });
+
+    if (!response.ok) {
+      setMessage("Nao foi possivel atualizar o usuario.");
+      return;
+    }
+
+    setMessage(user.banned ? "Usuario desbanido." : "Usuario banido.");
+    await loadUsers();
+  }
+
+  async function deleteUser(user: AdminUser) {
+    if (user.role === "admin") {
+      setMessage("Nao e permitido deletar conta admin.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Deletar o cadastro de ${user.email}? Esta acao nao pode ser desfeita.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/admin/users/${user.id}`, {
+      method: "DELETE",
+      headers: authHeaders()
+    });
+
+    if (!response.ok) {
+      setMessage("Nao foi possivel deletar o usuario.");
+      return;
+    }
+
+    setMessage("Usuario deletado.");
+    await loadUsers();
+  }
+
   if (!token) {
     return (
       <main className="adminShell">
@@ -408,6 +493,7 @@ export default function AdminPage() {
         <nav>
           <a href="#produtos">Produtos</a>
           <a href="#categorias">Categorias</a>
+          <a href="#usuarios">Usuarios</a>
           <a href="#lista">Catalogo</a>
         </nav>
         <button type="button" onClick={logout}>Sair</button>
@@ -424,6 +510,7 @@ export default function AdminPage() {
             <strong>{activeProducts}<span>Ativos</span></strong>
             <strong>{totalStock}<span>Em estoque</span></strong>
             <strong>{recommendedProducts}<span>Recomendados</span></strong>
+            <strong>{clientUsers.length}<span>Usuarios</span></strong>
           </div>
         </header>
 
@@ -553,7 +640,7 @@ export default function AdminPage() {
               <span>Catalogo publicado</span>
               <h2>Produtos</h2>
             </div>
-            <button type="button" onClick={loadAdminData}>Atualizar</button>
+            <button type="button" onClick={() => loadAdminData()}>Atualizar</button>
           </div>
 
           <div className="adminProductTable">
@@ -578,6 +665,43 @@ export default function AdminPage() {
               </article>
             ))}
             {products.length === 0 && <p className="adminEmpty">Nenhum produto cadastrado ainda.</p>}
+          </div>
+        </section>
+
+        <section id="usuarios" className="adminCard">
+          <div className="adminCardHeader">
+            <div>
+              <span>Contas cadastradas</span>
+              <h2>Usuarios</h2>
+            </div>
+            <button type="button" onClick={() => loadUsers()}>Atualizar</button>
+          </div>
+
+          <div className="adminUserTable">
+            {users.map((user) => (
+              <article key={user.id}>
+                <div>
+                  <strong>{user.email}</strong>
+                  <span>{user.name || "Sem nome"} · {user.role === "admin" ? "Admin" : "Cliente"}</span>
+                  {user.phone && <small>{user.phone}</small>}
+                </div>
+                <div className="adminStatus">
+                  <span className={user.role === "admin" ? "ok" : "muted"}>{user.role === "admin" ? "Admin" : "Cliente"}</span>
+                  {user.banned && <span className="danger">Banido</span>}
+                  <span>{formatNumber(user.hellpoints)} HP</span>
+                  <span>{formatNumber(user.raffleTickets)} tickets</span>
+                </div>
+                <div className="adminRowActions">
+                  <button type="button" disabled={user.role === "admin"} onClick={() => toggleUserBan(user)}>
+                    {user.banned ? "Desbanir" : "Banir"}
+                  </button>
+                  <button type="button" className="danger" disabled={user.role === "admin"} onClick={() => deleteUser(user)}>
+                    Deletar
+                  </button>
+                </div>
+              </article>
+            ))}
+            {users.length === 0 && <p className="adminEmpty">Nenhum usuario cadastrado ainda.</p>}
           </div>
         </section>
       </section>

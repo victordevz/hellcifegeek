@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Inject, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { RequestUser } from "../domain";
+import { AdminGuard } from "./admin.guard";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
 
@@ -22,6 +23,24 @@ export class AuthController {
     return this.auth.login(body as Record<string, unknown>, "admin");
   }
 
+  @Get("admin/users")
+  @UseGuards(AuthGuard, AdminGuard)
+  adminUsers() {
+    return this.auth.listUsers();
+  }
+
+  @Patch("admin/users/:id/ban")
+  @UseGuards(AuthGuard, AdminGuard)
+  adminBanUser(@Req() request: { user: RequestUser }, @Param("id") userId: string, @Body() body: unknown) {
+    return this.auth.setUserBanned(request.user.id, userId, body as Record<string, unknown>);
+  }
+
+  @Delete("admin/users/:id")
+  @UseGuards(AuthGuard, AdminGuard)
+  adminDeleteUser(@Req() request: { user: RequestUser }, @Param("id") userId: string) {
+    return this.auth.deleteUser(request.user.id, userId);
+  }
+
   @Get("google")
   google(
     @Query("redirect_uri") redirectUri: string | undefined,
@@ -39,12 +58,24 @@ export class AuthController {
   @Get("me")
   @UseGuards(AuthGuard)
   me(@Req() request: { user: RequestUser }) {
-    return request.user;
+    return this.auth.getProfile(request.user.id);
   }
 
   @Patch("me")
   @UseGuards(AuthGuard)
   updateMe(@Req() request: { user: RequestUser }, @Body() body: unknown) {
     return this.auth.updateProfile(request.user.id, body as Record<string, unknown>);
+  }
+
+  @Post("me/hellpoints/tickets")
+  @UseGuards(AuthGuard)
+  buyRaffleTicket(@Req() request: { user: RequestUser }) {
+    return this.auth.buyRaffleTicket(request.user.id);
+  }
+
+  @Post("me/hellpoints/cashback")
+  @UseGuards(AuthGuard)
+  addCashback(@Req() request: { user: RequestUser }, @Body() body: unknown) {
+    return this.auth.addCashback(request.user.id, body as Record<string, unknown>);
   }
 }

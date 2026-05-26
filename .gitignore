@@ -9,6 +9,7 @@ build
 .DS_Store
 .vercel
 .turbo
+supabase/.temp
 apps/api/data
 npm-debug.log*
 yarn-debug.log*

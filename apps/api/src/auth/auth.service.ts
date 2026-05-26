@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { PublicUser, RequestUser, User, UserRole } from "../domain";
@@ -17,6 +17,9 @@ type LoginInput = {
   email?: string;
   password?: string;
 };
+
+const signupHellpointsBonus = 50;
+const raffleTicketCost = 50;
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -61,6 +64,9 @@ export class AuthService implements OnModuleInit {
       phone: input.phone?.trim() || undefined,
       passwordHash: await this.hashPassword(password),
       role: "client",
+      hellpoints: signupHellpointsBonus,
+      raffleTickets: 0,
+      banned: false,
       createdAt: new Date().toISOString()
     };
 
@@ -84,7 +90,13 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("Acesso nao permitido para este perfil");
     }
 
+    this.ensureUserCanAccess(user);
     return this.sessionFor(user);
+  }
+
+  async listUsers() {
+    const data = await this.store.read();
+    return data.users.map((user) => this.toPublicUser(user));
   }
 
   googleAuthUrl(redirectUri = this.defaultGoogleRedirectUri, state?: string) {
@@ -154,12 +166,16 @@ export class AuthService implements OnModuleInit {
         phone: undefined,
         passwordHash: await this.hashPassword(randomBytes(32).toString("base64url")),
         role: "client",
+        hellpoints: signupHellpointsBonus,
+        raffleTickets: 0,
+        banned: false,
         createdAt: new Date().toISOString()
       };
       data.users.push(user);
       await this.store.write(data);
     }
 
+    this.ensureUserCanAccess(user);
     return this.sessionFor(user);
   }
 
@@ -190,8 +206,23 @@ export class AuthService implements OnModuleInit {
   }
 
   toPublicUser(user: User): PublicUser {
+    user.hellpoints = this.normalizePoints(user.hellpoints);
+    user.raffleTickets = this.normalizePoints(user.raffleTickets);
+    user.banned = Boolean(user.banned);
     const { passwordHash, ...publicUser } = user;
     return publicUser;
+  }
+
+  async getProfile(userId: string) {
+    const data = await this.store.read();
+    const user = data.users.find((item) => item.id === userId);
+
+    if (!user) {
+      throw new UnauthorizedException("Usuario nao encontrado");
+    }
+
+    this.ensureUserCanAccess(user);
+    return this.toPublicUser(user);
   }
 
   async updateProfile(userId: string, input: Record<string, unknown>) {
@@ -202,6 +233,8 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("Usuario nao encontrado");
     }
 
+    this.ensureUserCanAccess(user);
+
     if (typeof input.phone === "string") {
       user.phone = input.phone.trim() || undefined;
     }
@@ -209,6 +242,56 @@ export class AuthService implements OnModuleInit {
     await this.store.write(data);
 
     return this.toPublicUser(user);
+  }
+
+  async buyRaffleTicket(userId: string) {
+    const data = await this.store.read();
+    const user = data.users.find((item) => item.id === userId);
+
+    if (!user) {
+      throw new UnauthorizedException("Usuario nao encontrado");
+    }
+
+    this.ensureUserCanAccess(user);
+    user.hellpoints = this.normalizePoints(user.hellpoints);
+    user.raffleTickets = this.normalizePoints(user.raffleTickets);
+
+    if (user.hellpoints < raffleTicketCost) {
+      throw new BadRequestException("Hellpoints insuficientes");
+    }
+
+    user.hellpoints -= raffleTicketCost;
+    user.raffleTickets += 1;
+    await this.store.write(data);
+
+    return this.toPublicUser(user);
+  }
+
+  async addCashback(userId: string, input: Record<string, unknown>) {
+    const totalCents = Number(input.totalCents);
+
+    if (!Number.isFinite(totalCents) || totalCents <= 0) {
+      throw new BadRequestException("Total invalido");
+    }
+
+    const data = await this.store.read();
+    const user = data.users.find((item) => item.id === userId);
+
+    if (!user) {
+      throw new UnauthorizedException("Usuario nao encontrado");
+    }
+
+    this.ensureUserCanAccess(user);
+    const roundedReais = Math.round(totalCents / 100);
+    const cashback = roundedReais * 10;
+    user.hellpoints = this.normalizePoints(user.hellpoints) + cashback;
+    user.raffleTickets = this.normalizePoints(user.raffleTickets);
+    await this.store.write(data);
+
+    return {
+      user: this.toPublicUser(user),
+      cashback
+    };
   }
 
   private async ensureDefaultAdmin() {
@@ -225,6 +308,9 @@ export class AuthService implements OnModuleInit {
       phone: undefined,
       passwordHash: await this.hashPassword(process.env.ADMIN_PASSWORD ?? "admin123"),
       role: "admin",
+      hellpoints: 0,
+      raffleTickets: 0,
+      banned: false,
       createdAt: new Date().toISOString()
     });
 
@@ -251,6 +337,52 @@ export class AuthService implements OnModuleInit {
 
   private sign(value: string) {
     return createHmac("sha256", this.tokenSecret).update(value).digest("base64url");
+  }
+
+  private normalizePoints(value: unknown) {
+    return Math.max(0, Math.floor(Number(value ?? 0)));
+  }
+
+  async setUserBanned(adminId: string, userId: string, input: Record<string, unknown>) {
+    const data = await this.store.read();
+    const targetUser = data.users.find((user) => user.id === userId);
+
+    if (!targetUser) {
+      throw new BadRequestException("Usuario nao encontrado");
+    }
+
+    if (targetUser.id === adminId || targetUser.role === "admin") {
+      throw new BadRequestException("Nao e permitido banir conta admin");
+    }
+
+    targetUser.banned = Boolean(input.banned);
+    await this.store.write(data);
+
+    return this.toPublicUser(targetUser);
+  }
+
+  async deleteUser(adminId: string, userId: string) {
+    const data = await this.store.read();
+    const targetUser = data.users.find((user) => user.id === userId);
+
+    if (!targetUser) {
+      throw new BadRequestException("Usuario nao encontrado");
+    }
+
+    if (targetUser.id === adminId || targetUser.role === "admin") {
+      throw new BadRequestException("Nao e permitido deletar conta admin");
+    }
+
+    data.users = data.users.filter((user) => user.id !== userId);
+    await this.store.write(data);
+
+    return { removed: true };
+  }
+
+  private ensureUserCanAccess(user: User) {
+    if (user.banned) {
+      throw new UnauthorizedException("Conta banida");
+    }
   }
 
   private async hashPassword(password: string) {

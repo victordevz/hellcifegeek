@@ -14,5 +14,8 @@
     "start:api": "npm run start -w @hellcifegeek/api",
     "typecheck": "npm run typecheck -w @hellcifegeek/web",
     "typecheck:api": "npm run typecheck -w @hellcifegeek/api"
+  },
+  "devDependencies": {
+    "supabase": "^2.101.0"
   }
 }

@@ -7,6 +7,9 @@ export type User = {
   phone?: string;
   passwordHash: string;
   role: UserRole;
+  hellpoints: number;
+  raffleTickets: number;
+  banned: boolean;
   createdAt: string;
 };
 
