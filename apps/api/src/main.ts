@@ -12,7 +12,7 @@ const { json, urlencoded } = nodeRequire("express") as {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  const port = Number(process.env.API_PORT ?? 4000);
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
   const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://127.0.0.1:3000,http://localhost:3000")
     .split(",")
     .map((origin) => origin.trim())
@@ -26,8 +26,8 @@ async function bootstrap() {
     credentials: true
   });
 
-  await app.listen(port);
-  console.log(`Hellcife Geek API running on http://127.0.0.1:${port}/api`);
+  await app.listen(port, "0.0.0.0");
+  console.log(`Hellcife Geek API running on port ${port}/api`);
 }
 
 void bootstrap();
