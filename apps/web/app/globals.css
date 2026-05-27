@@ -802,6 +802,13 @@ h2 {
   line-height: 0.85;
 }
 
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
 .cta a,
 .cta button {
   display: inline-flex;
@@ -819,6 +826,11 @@ h2 {
   letter-spacing: 0;
   text-transform: uppercase;
   transition: transform 160ms linear, color 160ms linear;
+}
+
+.cta button.secondary {
+  background: var(--white);
+  color: var(--black);
 }
 
 .cta a:hover,
@@ -878,7 +890,8 @@ h2 {
 }
 
 .productModalOverlay,
-.cartOverlay {
+.cartOverlay,
+.raffleModalOverlay {
   position: fixed;
   z-index: 70;
   inset: 0;
@@ -889,6 +902,175 @@ h2 {
 
 .productModalOverlay {
   place-items: center;
+}
+
+.raffleModalOverlay {
+  place-items: center;
+}
+
+.raffleModal {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(320px, 1.08fr);
+  width: min(1040px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border: 2px solid var(--black);
+  background: var(--red);
+  color: var(--black);
+}
+
+.raffleClose {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+}
+
+.raffleModalBuy,
+.raffleModalInfo {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 28px;
+}
+
+.raffleModalBuy {
+  min-height: 600px;
+  background: var(--black);
+  color: var(--white);
+}
+
+.raffleModalInfo {
+  background: var(--white);
+  border-left: 2px solid var(--black);
+}
+
+.raffleBadge {
+  display: grid;
+  width: 108px;
+  height: 108px;
+  place-items: center;
+  border: 2px solid var(--red);
+  border-radius: 999px;
+  color: var(--red);
+}
+
+.raffleModalBuy span,
+.raffleModalBuy p,
+.raffleModalInfo span,
+.raffleModalInfo p,
+.raffleModalInfo li,
+.raffleWallet,
+.raffleNotice {
+  font-family: var(--font-space), monospace;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.raffleModalBuy > span,
+.raffleModalInfo > span {
+  font-size: 13px;
+}
+
+.raffleModalBuy h2 {
+  color: var(--white);
+  font-size: clamp(54px, 7vw, 96px);
+  line-height: 0.84;
+}
+
+.raffleModalInfo h3 {
+  font-size: clamp(42px, 6vw, 76px);
+  line-height: 0.86;
+}
+
+.raffleModalBuy p,
+.raffleModalInfo p,
+.raffleModalInfo li {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.raffleModalInfo p,
+.raffleModalInfo li {
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.raffleModalInfo ol {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.raffleWallet {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  padding: 16px 0;
+}
+
+.raffleWallet strong {
+  color: var(--red);
+  font-size: 26px;
+}
+
+.raffleWallet span {
+  align-self: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.raffleModalBuy button,
+.raffleModalInfo button {
+  min-height: 58px;
+  border: 2px solid var(--red);
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--black);
+  padding: 0 22px;
+  font-family: var(--font-space), monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  transition: transform 160ms linear;
+}
+
+.raffleModalInfo button {
+  border-color: var(--black);
+  background: var(--black);
+  color: var(--white);
+}
+
+.raffleModalBuy button.outline {
+  background: transparent;
+  color: var(--white);
+}
+
+.raffleModalBuy button:hover,
+.raffleModalInfo button:hover {
+  transform: translateX(4px) scale(1.03);
+}
+
+.raffleModalBuy button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.raffleNotice {
+  margin: 0;
+  border: 2px solid var(--red);
+  background: var(--white);
+  color: var(--black) !important;
+  padding: 12px;
+  font-size: 13px;
 }
 
 .productModal {
@@ -3635,6 +3817,15 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .raffleModal {
+    grid-template-columns: 1fr;
+  }
+
+  .raffleModalInfo {
+    border-left: 0;
+    border-top: 2px solid var(--black);
+  }
+
   .productModalMedia {
     border-right: 0;
     border-bottom: 2px solid var(--black);
@@ -4204,6 +4395,33 @@ h2 {
 
   .cartOverlay {
     padding: 10px;
+  }
+
+  .raffleModalOverlay {
+    padding: 10px;
+    place-items: stretch;
+  }
+
+  .raffleModal {
+    width: 100%;
+    max-height: none;
+    height: calc(100svh - 20px);
+    border-width: 2px;
+  }
+
+  .raffleModalBuy,
+  .raffleModalInfo {
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .raffleModalBuy h2,
+  .raffleModalInfo h3 {
+    font-size: clamp(42px, 15vw, 62px);
+  }
+
+  .raffleWallet {
+    grid-template-columns: 1fr;
   }
 
   .productModalOverlay {

@@ -265,6 +265,9 @@ export default function Page() {
   const [pixPayment, setPixPayment] = useState<PixPayment | null>(null);
   const [isCreatingPix, setIsCreatingPix] = useState(false);
   const [orders, setOrders] = useState<PixPayment[]>([]);
+  const [raffleModalOpen, setRaffleModalOpen] = useState(false);
+  const [raffleMessage, setRaffleMessage] = useState("");
+  const [isBuyingRaffleTicket, setIsBuyingRaffleTicket] = useState(false);
   const loginModalRef = useRef<HTMLDivElement>(null);
   const signupModalRef = useRef<HTMLDivElement>(null);
   const categoriesById = useMemo(() => {
@@ -669,6 +672,7 @@ export default function Page() {
         setSelectedProduct(null);
         setCartOpen(false);
         setAccountOpen(false);
+        setRaffleModalOpen(false);
       }
     };
 
@@ -754,6 +758,18 @@ export default function Page() {
     setIsAccountPhoneEditing(false);
     setAuthModal(null);
   }
+
+  useEffect(() => {
+    if (!raffleMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRaffleMessage("");
+    }, 3600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [raffleMessage]);
 
   function logout() {
     localStorage.removeItem("hellcifegeek.token");
@@ -972,6 +988,40 @@ export default function Page() {
       router.push(`/checkout/${payment.id}`);
     } finally {
       setIsCreatingPix(false);
+    }
+  }
+
+  async function buyPromoRaffleTicket() {
+    setRaffleMessage("");
+    const token = localStorage.getItem("hellcifegeek.token");
+
+    if (!token) {
+      setRaffleModalOpen(false);
+      openAuthModal("signup");
+      setAuthMessage("Crie sua conta para ganhar Hellpoints e comprar tickets.");
+      return;
+    }
+
+    setIsBuyingRaffleTicket(true);
+
+    try {
+      const response = await fetch(`${apiUrl}/auth/me/hellpoints/tickets`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Não foi possível comprar o ticket." })) as { message?: string };
+        setRaffleMessage(error.message ?? "Não foi possível comprar o ticket.");
+        return;
+      }
+
+      const user = await response.json() as AuthUser;
+      localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
+      setCurrentUser(user);
+      setRaffleMessage("Ticket comprado. Use ele no sorteio em Hellpoints.");
+    } finally {
+      setIsBuyingRaffleTicket(false);
     }
   }
 
@@ -1196,7 +1246,10 @@ export default function Page() {
       <section id="contact" className="cta">
         <p>Cadastre-se e participe</p>
         <h2>Cupons e Sorteios</h2>
-        <button type="button" onClick={() => openAuthModal("signup")}>Se cadastrar</button>
+        <div className="ctaActions">
+          <button type="button" onClick={() => setRaffleModalOpen(true)}>Comprar ticket</button>
+          <button type="button" className="secondary" onClick={() => openAuthModal("signup")}>Se cadastrar</button>
+        </div>
       </section>
 
       <section className="marqueeSection footerRibbon">
@@ -1283,6 +1336,53 @@ export default function Page() {
                   Colocar no carrinho
                 </button>
               </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {raffleModalOpen && (
+        <div className="raffleModalOverlay" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setRaffleModalOpen(false);
+          }
+        }}>
+          <section className="raffleModal" role="dialog" aria-modal="true" aria-labelledby="raffle-modal-title">
+            <button type="button" className="closeModal raffleClose" onClick={() => setRaffleModalOpen(false)} aria-label="Fechar sorteio">
+              <X size={22} strokeWidth={3} />
+            </button>
+            <div className="raffleModalBuy">
+              <div className="raffleBadge">
+                <Ticket size={58} strokeWidth={2.6} />
+              </div>
+              <span>Sorteio Hellpoints</span>
+              <h2 id="raffle-modal-title">Ticket de sorteio</h2>
+              <p>Compre tickets usando Hellpoints e coloque seu nome nos sorteios ativos da Hellcife Geek.</p>
+              <div className="raffleWallet">
+                <strong>{formatHellpoints(currentUser?.hellpoints)} HP</strong>
+                <span>saldo atual</span>
+                <strong>{formatHellpoints(currentUser?.raffleTickets)}x</strong>
+                <span>tickets disponíveis</span>
+              </div>
+              <button type="button" onClick={buyPromoRaffleTicket} disabled={isBuyingRaffleTicket || Boolean(currentUser && Number(currentUser.hellpoints ?? 0) < 50)}>
+                {isBuyingRaffleTicket ? "Comprando..." : "Comprar por 50 HP"}
+              </button>
+              {!currentUser && <button type="button" className="outline" onClick={() => { setRaffleModalOpen(false); openAuthModal("signup"); }}>Criar conta</button>}
+              {raffleMessage && <p className="raffleNotice">{raffleMessage}</p>}
+            </div>
+            <div className="raffleModalInfo">
+              <span>Como participar</span>
+              <h3>Sorteio de lançamento</h3>
+              <p>O sorteio especial libera quando a Hellcife Geek alcançar os primeiros 125 cadastros no site.</p>
+              <ol>
+                <li>Crie sua conta e ganhe Hellpoints iniciais.</li>
+                <li>Compre um ticket usando 50 Hellpoints.</li>
+                <li>Entre em Hellpoints e use o ticket no sorteio do controle 8BitDo original.</li>
+                <li>Cada ticket usado coloca seu nome mais uma vez na lista do sorteio.</li>
+              </ol>
+              <button type="button" onClick={() => { setRaffleModalOpen(false); router.push("/hellpoints"); }}>
+                Ir para Hellpoints
+              </button>
             </div>
           </section>
         </div>
