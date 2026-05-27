@@ -109,6 +109,13 @@ function deliveryLabel(order: Order) {
   return "Entrega não iniciada";
 }
 
+function deliveryWhatsappUrl(order: Order) {
+  const items = order.items?.map((item) => `${item.quantity}x ${item.name}`).join(", ") || "meu pedido";
+  const message = `Oi, comprei ${items} na Hellcife Geek e quero combinar a entrega!`;
+
+  return `https://wa.me/5581981472018?text=${encodeURIComponent(message)}`;
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -282,6 +289,16 @@ export default function OrdersPage() {
                   <button type="button" onClick={() => router.push(`/checkout/${selectedOrder.id}`)}>
                     Pagar agora
                   </button>
+                </div>
+              )}
+
+              {selectedOrder.status === "approved" && (
+                <div className="orderDeliveryBox">
+                  <strong>Combine sua entrega</strong>
+                  <p>Pagamento confirmado. Fale no WhatsApp para organizar o melhor horário e local da entrega.</p>
+                  <a href={deliveryWhatsappUrl(selectedOrder)} target="_blank" rel="noopener noreferrer">
+                    Chamar no WhatsApp
+                  </a>
                 </div>
               )}
 
