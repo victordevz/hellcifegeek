@@ -4,7 +4,7 @@ import gsap from "gsap";
 import type { FormEvent } from "react";
 import { ArrowUp, ArrowUpRight, Clock3, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const services = [
   {
@@ -312,6 +312,33 @@ export default function Page() {
   const cartCashback = cashbackFor(cartFinalTotalCents);
   const pendingOrders = orders.filter((order) => order.status === "pending" && !isPendingPixExpired(order));
 
+  const refreshCatalog = useCallback(async () => {
+    try {
+      const [productsResponse, categoriesResponse] = await Promise.all([
+        fetch(`${apiUrl}/products?active=true`, { cache: "no-store" }),
+        fetch(`${apiUrl}/categories`, { cache: "no-store" })
+      ]);
+
+      if (!productsResponse.ok || !categoriesResponse.ok) {
+        throw new Error("API indisponivel");
+      }
+
+      const [productsData, categoriesData] = await Promise.all([
+        productsResponse.json() as Promise<ApiProduct[]>,
+        categoriesResponse.json() as Promise<ApiCategory[]>
+      ]);
+
+      setProducts(productsData);
+      setCategories(categoriesData);
+      setProductsError("");
+    } catch {
+      setProducts([]);
+      setProductsError("Nao foi possivel carregar os produtos agora.");
+    } finally {
+      setIsProductsLoading(false);
+    }
+  }, []);
+
   function selectCategory(category: string) {
     setActiveCategory(category);
     setVisibleCount(productsPerPage);
@@ -358,50 +385,9 @@ export default function Page() {
       }
     }
 
-    let isMounted = true;
-
-    async function loadProducts() {
-      try {
-        const [productsResponse, categoriesResponse] = await Promise.all([
-          fetch(`${apiUrl}/products?active=true`, { cache: "no-store" }),
-          fetch(`${apiUrl}/categories`, { cache: "no-store" })
-        ]);
-
-        if (!productsResponse.ok || !categoriesResponse.ok) {
-          throw new Error("API indisponivel");
-        }
-
-        const [productsData, categoriesData] = await Promise.all([
-          productsResponse.json() as Promise<ApiProduct[]>,
-          categoriesResponse.json() as Promise<ApiCategory[]>
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        setProducts(productsData);
-        setCategories(categoriesData);
-        setProductsError("");
-      } catch {
-        if (isMounted) {
-          setProducts([]);
-          setProductsError("Nao foi possivel carregar os produtos agora.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsProductsLoading(false);
-        }
-      }
-    }
-
-    void loadProducts();
+    void refreshCatalog();
     void refreshCurrentUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  }, [refreshCatalog]);
 
   useEffect(() => {
     if (!accountMessage) {
@@ -457,11 +443,15 @@ export default function Page() {
         body: JSON.stringify({
           items: cartActivityItems
         })
+      }).then((response) => {
+        if (response.ok) {
+          void refreshCatalog();
+        }
       }).catch(() => undefined);
     }, 800);
 
     return () => window.clearTimeout(timeoutId);
-  }, [cartActivityItems, cartLoaded, currentUser?.id, isProductsLoading]);
+  }, [cartActivityItems, cartLoaded, currentUser?.id, isProductsLoading, refreshCatalog]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -728,7 +718,7 @@ export default function Page() {
       return;
     }
 
-    const maxQuantity = Math.max(1, stockFor(selectedProduct));
+    const maxQuantity = Math.max(1, availableForCart(selectedProduct));
     setProductQuantity(Math.min(maxQuantity, Math.max(1, nextQuantity)));
   }
 
@@ -736,8 +726,12 @@ export default function Page() {
     return cartItems.find((item) => item.productId === productId)?.quantity ?? 0;
   }
 
+  function availableForCart(product: ApiProduct) {
+    return stockFor(product) + quantityInCart(product.id);
+  }
+
   function addToCart(product: ApiProduct, quantity = 1) {
-    const stock = stockFor(product);
+    const stock = availableForCart(product);
 
     if (!product.active || stock <= 0) {
       setCartMessage("Produto indisponivel.");
@@ -767,7 +761,7 @@ export default function Page() {
       return;
     }
 
-    const stock = stockFor(product);
+    const stock = availableForCart(product);
 
     if (nextQuantity <= 0) {
       setCartItems((currentItems) => currentItems.filter((item) => item.productId !== productId));
@@ -962,7 +956,7 @@ export default function Page() {
   }
 
   function checkoutProduct(product: ApiProduct, quantity: number) {
-    if (!product.active || stockFor(product) <= 0) {
+    if (!product.active || availableForCart(product) <= 0) {
       setCartMessage("Produto indisponivel.");
       return;
     }
@@ -1372,10 +1366,10 @@ export default function Page() {
                 </button>
               </div>
               <div className="productModalActions">
-                <button type="button" disabled={!selectedProduct.active || stockFor(selectedProduct) <= 0} onClick={() => checkoutProduct(selectedProduct, productQuantity)}>
+                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct) <= 0} onClick={() => checkoutProduct(selectedProduct, productQuantity)}>
                   Comprar agora
                 </button>
-                <button type="button" disabled={!selectedProduct.active || stockFor(selectedProduct) <= 0} onClick={() => addToCart(selectedProduct, productQuantity)}>
+                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct) <= 0} onClick={() => addToCart(selectedProduct, productQuantity)}>
                   Colocar no carrinho
                 </button>
               </div>

@@ -24,7 +24,8 @@ const mercadoPagoApiUrl = "https://api.mercadopago.com/v1/payments";
 const partnerCommissionPercent = 10;
 const abandonedCartDelayMs = 3 * 60 * 60 * 1000;
 const cartReminderSweepMs = 5 * 60 * 1000;
-const inventoryReservationMs = 5 * 60 * 1000;
+const cartReservationMs = 2 * 60 * 1000;
+const pixPaymentExpirationMs = 30 * 60 * 1000;
 
 @Injectable()
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {
@@ -70,7 +71,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const userPayments = data.payments.filter((payment) => payment.userId === user.id);
-    let shouldWrite = this.expireStaleReservations(data);
+    let shouldWrite = this.releaseCartReservationForUser(data, user.id);
+    shouldWrite = this.expireStaleReservations(data) || shouldWrite;
     shouldWrite = this.expireDuplicatePendingPayments(data, userPayments) || shouldWrite;
     const activePendingPayment = this.findActivePendingPaymentForItems(data, userPayments, items);
 
@@ -87,7 +89,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     const discountCents = Math.max(0, subtotalCents - totalCents);
     const nowDate = new Date();
     const now = nowDate.toISOString();
-    const expiresAt = new Date(nowDate.getTime() + inventoryReservationMs).toISOString();
+    const expiresAt = new Date(nowDate.getTime() + pixPaymentExpirationMs).toISOString();
     const payment: PaymentRecord = {
       id: crypto.randomUUID(),
       provider: "mercado_pago",
@@ -123,7 +125,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       items,
       status: "active",
       createdAt: now,
-      expiresAt: new Date(nowDate.getTime() + inventoryReservationMs).toISOString()
+      expiresAt
     });
     await this.store.write(data);
     void this.emails.sendPurchaseCreatedEmail(payment);
@@ -155,9 +157,13 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         existing.clearedAt = now.toISOString();
       }
 
+      this.releaseCartReservationForUser(data, user.id);
       await this.store.write(data);
       return { tracked: false };
     }
+
+    this.expireStaleReservations(data);
+    this.ensureInventoryAvailable(data, items, this.cartReservationKey(user.id));
 
     const subtotalCents = items.reduce((total, item) => total + item.priceCents * item.quantity, 0);
     const reminder = existing ?? {
@@ -183,6 +189,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       data.cartReminders.push(reminder);
     }
 
+    this.upsertCartReservation(data, user, items, now);
     await this.store.write(data);
     return { tracked: true, remindAfter: reminder.remindAfter };
   }
@@ -540,8 +547,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return changed;
   }
 
-  private ensureInventoryAvailable(data: Database, items: PartnerPurchaseItem[]) {
-    const reservedByProduct = this.reservedQuantitiesByProduct(data);
+  private ensureInventoryAvailable(data: Database, items: PartnerPurchaseItem[], excludedReservationId?: string) {
+    const reservedByProduct = this.reservedQuantitiesByProduct(data, excludedReservationId);
 
     for (const item of items) {
       if (!item.productId) {
@@ -585,11 +592,15 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     ));
   }
 
-  private reservedQuantitiesByProduct(data: Database) {
+  private reservedQuantitiesByProduct(data: Database, excludedReservationId?: string) {
     const reservedByProduct = new Map<string, number>();
     const now = Date.now();
 
     for (const reservation of data.inventoryReservations ?? []) {
+      if (excludedReservationId && reservation.id === excludedReservationId) {
+        continue;
+      }
+
       if (reservation.status !== "active" || new Date(reservation.expiresAt).getTime() <= now) {
         continue;
       }
@@ -604,6 +615,51 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     return reservedByProduct;
+  }
+
+  private cartReservationKey(userId: string) {
+    return `cart:${userId}`;
+  }
+
+  private upsertCartReservation(data: Database, user: User, items: PartnerPurchaseItem[], now: Date) {
+    const reservationId = this.cartReservationKey(user.id);
+    const existing = data.inventoryReservations.find((reservation) => reservation.id === reservationId);
+    const reservation = existing ?? {
+      id: reservationId,
+      paymentId: reservationId,
+      userId: user.id,
+      userEmail: user.email,
+      items: [],
+      status: "active" as const,
+      createdAt: now.toISOString(),
+      expiresAt: now.toISOString()
+    };
+
+    reservation.userEmail = user.email;
+    reservation.items = items;
+    reservation.status = "active";
+    reservation.expiresAt = new Date(now.getTime() + cartReservationMs).toISOString();
+    reservation.releasedAt = undefined;
+    reservation.convertedAt = undefined;
+
+    if (!existing) {
+      data.inventoryReservations.push(reservation);
+    }
+  }
+
+  private releaseCartReservationForUser(data: Database, userId: string) {
+    const reservationId = this.cartReservationKey(userId);
+    let changed = false;
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.id === reservationId && reservation.status === "active") {
+        reservation.status = "released";
+        reservation.releasedAt = new Date().toISOString();
+        changed = true;
+      }
+    }
+
+    return changed;
   }
 
   private releaseReservationsForPayment(data: Database, paymentId: string, status: "expired" | "released") {

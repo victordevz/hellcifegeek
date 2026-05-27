@@ -333,12 +333,18 @@ describe("Hellcife Geek API", () => {
     expect(tracked.body.tracked).toBe(true);
     expect(tracked.body.remindAfter).toBeTruthy();
 
+    const reservedProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
+    expect(reservedProduct.body.stock).toBe(3);
+
     const cleared = await request(httpServer)
       .post("/api/payments/cart-activity")
       .set(auth(client))
       .send({ items: [] })
       .expect(201);
     expect(cleared.body.tracked).toBe(false);
+
+    const releasedProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
+    expect(releasedProduct.body.stock).toBe(4);
   });
 
   it("creates Pix payment, reuses pending payment, approves webhook and records partner dashboard", async () => {
