@@ -903,9 +903,12 @@ h2 {
   z-index: 60;
   inset: 0;
   display: none;
-  place-items: center;
+  align-items: start;
+  justify-items: center;
   background: rgba(0, 0, 0, 0.72);
   padding: 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modalOverlay.isOpen {
@@ -2688,9 +2691,13 @@ h2 {
 
 .authModal {
   width: min(520px, 100%);
+  max-height: calc(100dvh - 36px);
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 2px solid var(--black);
   background: var(--red);
   color: var(--black);
+  scrollbar-gutter: stable;
 }
 
 .authHeader {
@@ -4105,6 +4112,47 @@ h2 {
 }
 
 @media (max-width: 560px) {
+  .modalOverlay {
+    padding: 8px;
+  }
+
+  .authModal {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+  }
+
+  .authHeader {
+    padding: 14px;
+  }
+
+  .authHeader h2 {
+    font-size: clamp(48px, 17vw, 86px);
+  }
+
+  .authChoices,
+  .manualForm {
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .authChoices button,
+  .authChoices a,
+  .authActions a,
+  .authActions button {
+    min-height: 50px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+
+  .manualForm input {
+    min-height: 50px;
+    font-size: 15px;
+  }
+
+  .authActions {
+    grid-template-columns: 1fr;
+  }
+
   .ordersPage {
     padding: 14px;
   }
