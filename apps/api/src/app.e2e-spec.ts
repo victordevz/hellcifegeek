@@ -425,8 +425,8 @@ describe("Hellcife Geek API", () => {
       .set(auth(partner))
       .expect(200);
     expect(dashboard.body.summary.purchaseCount).toBe(1);
-    expect(dashboard.body.summary.commissionRate).toBe(10);
-    expect(dashboard.body.summary.commissionCents).toBe(Math.round(4491 * 0.1));
+    expect(dashboard.body.summary.commissionRate).toBe(5);
+    expect(dashboard.body.summary.commissionCents).toBe(Math.round(4491 * 0.05));
   });
 
   it("supports admin user actions and upload guard", async () => {

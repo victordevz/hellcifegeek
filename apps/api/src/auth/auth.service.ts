@@ -23,6 +23,7 @@ type LoginInput = {
 const signupHellpointsBonus = 50;
 const raffleTicketCost = 50;
 const partnerDiscountPercent = 10;
+const partnerCommissionPercent = 5;
 const launchRaffleId = "launch-8bitdo-controller";
 const launchRaffleGoal = 125;
 const launchRaffleTitle = "Sorteio de lançamento";
@@ -701,8 +702,8 @@ export class AuthService implements OnModuleInit {
         itemCount,
         totalCents,
         discountCents,
-        commissionRate: partnerDiscountPercent,
-        commissionCents: Math.round(totalCents * (partnerDiscountPercent / 100)),
+        commissionRate: partnerCommissionPercent,
+        commissionCents: Math.round(totalCents * (partnerCommissionPercent / 100)),
         categoryBreakdown
       }
     };
