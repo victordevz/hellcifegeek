@@ -76,6 +76,9 @@ describe("Hellcife Geek API", () => {
       }
 
       if (url.includes("api.mercadopago.com/v1/payments") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as { date_of_expiration?: string };
+        expect(new Date(body.date_of_expiration ?? "").getTime()).toBeGreaterThanOrEqual(Date.now() + 29 * 60 * 1000);
+
         return jsonResponse({
           id: 987654,
           status: "pending",

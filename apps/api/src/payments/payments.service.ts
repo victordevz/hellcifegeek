@@ -114,7 +114,6 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     payment.pixQrCode = mpPayment.point_of_interaction?.transaction_data?.qr_code;
     payment.pixQrCodeBase64 = mpPayment.point_of_interaction?.transaction_data?.qr_code_base64;
     payment.pixTicketUrl = mpPayment.point_of_interaction?.transaction_data?.ticket_url;
-    payment.expiresAt = this.earliestDate(payment.expiresAt, mpPayment.date_of_expiration);
     payment.updatedAt = new Date().toISOString();
     data.payments.push(payment);
     data.inventoryReservations.push({
@@ -307,6 +306,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createMercadoPagoPix(accessToken: string, payment: PaymentRecord, user: User) {
+    const providerExpiresAt = new Date(new Date(payment.createdAt).getTime() + 30 * 60 * 1000).toISOString();
     const response = await fetch(mercadoPagoApiUrl, {
       method: "POST",
       headers: {
@@ -318,7 +318,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         transaction_amount: payment.totalCents / 100,
         description: `Hellcife Geek - pedido ${payment.id}`,
         payment_method_id: "pix",
-        date_of_expiration: payment.expiresAt,
+        date_of_expiration: providerExpiresAt,
         external_reference: payment.id,
         notification_url: process.env.MERCADO_PAGO_WEBHOOK_URL,
         payer: {
@@ -363,13 +363,19 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    payment.status = this.normalizeProviderStatus(providerPayment.status);
-    payment.expiresAt = this.earliestDate(payment.expiresAt, providerPayment.date_of_expiration);
-    if (payment.status === "pending" && this.isPaymentExpired(payment)) {
+    const providerStatus = this.normalizeProviderStatus(providerPayment.status);
+    const providerApprovedAt = providerPayment.date_approved ?? payment.approvedAt;
+
+    if (providerStatus === "approved" && this.wasApprovedBeforeInternalExpiration(payment, providerApprovedAt)) {
+      payment.status = "approved";
+      payment.approvedAt = providerApprovedAt;
+    } else if (this.isPaymentExpired(payment)) {
       payment.status = "expired";
+    } else {
+      payment.status = providerStatus;
+      payment.approvedAt = providerApprovedAt;
     }
     payment.updatedAt = new Date().toISOString();
-    payment.approvedAt = providerPayment.date_approved ?? payment.approvedAt;
 
     const shouldSendApprovedEmail = payment.status === "approved" && !payment.cashbackApplied;
 
@@ -501,16 +507,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return Boolean(payment.expiresAt && new Date(payment.expiresAt).getTime() <= Date.now());
   }
 
-  private earliestDate(current: string | undefined, candidate: string | undefined) {
-    if (!current) {
-      return candidate;
+  private wasApprovedBeforeInternalExpiration(payment: PaymentRecord, approvedAt: string | undefined) {
+    if (!payment.expiresAt) {
+      return true;
     }
 
-    if (!candidate) {
-      return current;
+    if (!approvedAt) {
+      return !this.isPaymentExpired(payment);
     }
 
-    return new Date(candidate).getTime() < new Date(current).getTime() ? candidate : current;
+    return new Date(approvedAt).getTime() <= new Date(payment.expiresAt).getTime();
   }
 
   private findActivePendingPaymentForItems(data: Database, payments: PaymentRecord[], items: PartnerPurchaseItem[]) {
