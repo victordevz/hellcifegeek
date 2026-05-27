@@ -84,12 +84,6 @@ export class AuthController {
     return this.auth.buyRaffleTicket(request.user.id);
   }
 
-  @Post("me/hellpoints/cashback")
-  @UseGuards(AuthGuard)
-  addCashback(@Req() request: { user: RequestUser }, @Body() body: unknown) {
-    return this.auth.addCashback(request.user.id, body as Record<string, unknown>);
-  }
-
   @Get("partner/dashboard")
   @UseGuards(AuthGuard)
   partnerDashboard(

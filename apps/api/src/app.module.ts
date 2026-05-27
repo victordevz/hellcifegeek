@@ -3,11 +3,12 @@ import { AuthModule } from "./auth/auth.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { AppController } from "./app.controller";
 import { ProductsModule } from "./products/products.module";
+import { PaymentsModule } from "./payments/payments.module";
 import { StorageModule } from "./storage/storage.module";
 import { UploadsModule } from "./uploads/uploads.module";
 
 @Module({
-  imports: [StorageModule, AuthModule, CategoriesModule, ProductsModule, UploadsModule],
+  imports: [StorageModule, AuthModule, CategoriesModule, ProductsModule, PaymentsModule, UploadsModule],
   controllers: [AppController]
 })
 export class AppModule {}

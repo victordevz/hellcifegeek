@@ -54,6 +54,8 @@ export type PartnerPurchaseItem = {
   priceCents: number;
 };
 
+export type PartnerPurchaseStatus = "whatsapp_opened" | "pix_approved";
+
 export type PartnerPurchase = {
   id: string;
   partnerId: string;
@@ -65,8 +67,34 @@ export type PartnerPurchase = {
   discountCents: number;
   totalCents: number;
   items: PartnerPurchaseItem[];
-  status: "whatsapp_opened";
+  status: PartnerPurchaseStatus;
   createdAt: string;
+};
+
+export type PaymentStatus = "pending" | "approved" | "rejected" | "cancelled" | "expired" | "refunded";
+
+export type PaymentRecord = {
+  id: string;
+  provider: "mercado_pago";
+  providerPaymentId?: string;
+  status: PaymentStatus;
+  userId: string;
+  userEmail: string;
+  couponCode?: string;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  cashback: number;
+  cashbackApplied: boolean;
+  partnerPurchaseId?: string;
+  items: PartnerPurchaseItem[];
+  pixQrCode?: string;
+  pixQrCodeBase64?: string;
+  pixTicketUrl?: string;
+  createdAt: string;
+  expiresAt?: string;
+  updatedAt: string;
+  approvedAt?: string;
 };
 
 export type Database = {
@@ -74,6 +102,7 @@ export type Database = {
   categories: Category[];
   products: Product[];
   partnerPurchases: PartnerPurchase[];
+  payments: PaymentRecord[];
 };
 
 export type RequestUser = {

@@ -9,7 +9,8 @@ const emptyDatabase = (): Database => ({
   users: [],
   categories: [],
   products: [],
-  partnerPurchases: []
+  partnerPurchases: [],
+  payments: []
 });
 
 type SupabaseStateRow = {
@@ -166,9 +167,31 @@ export class JsonStoreService implements OnModuleInit {
       discountCents: Math.max(0, Math.floor(Number(purchase.discountCents ?? 0))),
       totalCents: Math.max(0, Math.floor(Number(purchase.totalCents ?? 0))),
       items: Array.isArray(purchase.items) ? purchase.items : [],
-      status: "whatsapp_opened"
+      status: purchase.status === "pix_approved" ? "pix_approved" : "whatsapp_opened"
+    })) : [];
+    nextData.payments = Array.isArray(nextData.payments) ? nextData.payments.map((payment) => ({
+      ...payment,
+      provider: "mercado_pago",
+      status: this.normalizePaymentStatus(payment.status),
+      subtotalCents: Math.max(0, Math.floor(Number(payment.subtotalCents ?? payment.totalCents ?? 0))),
+      discountCents: Math.max(0, Math.floor(Number(payment.discountCents ?? 0))),
+      totalCents: Math.max(0, Math.floor(Number(payment.totalCents ?? 0))),
+      cashback: Math.max(0, Math.floor(Number(payment.cashback ?? 0))),
+      cashbackApplied: Boolean(payment.cashbackApplied),
+      items: Array.isArray(payment.items) ? payment.items : [],
+      updatedAt: typeof payment.updatedAt === "string" ? payment.updatedAt : new Date().toISOString()
     })) : [];
 
     return nextData;
+  }
+
+  private normalizePaymentStatus(status: unknown) {
+    return status === "approved"
+      || status === "rejected"
+      || status === "cancelled"
+      || status === "expired"
+      || status === "refunded"
+      ? status
+      : "pending";
   }
 }

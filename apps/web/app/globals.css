@@ -973,7 +973,8 @@ h2 {
 .cartQty,
 .cartFooter,
 .cartEmpty,
-.cartMessage {
+.cartMessage,
+.cartToast {
   font-family: var(--font-space), monospace;
   font-weight: 700;
   letter-spacing: 0;
@@ -1092,6 +1093,47 @@ h2 {
   font-size: 13px;
 }
 
+.cartToast {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 120;
+  max-width: min(440px, calc(100vw - 48px));
+  margin: 0;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  box-shadow: 7px 7px 0 var(--black);
+  padding: 14px 16px;
+  font-size: 13px;
+}
+
+.pendingPixTab {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  padding: 0 16px;
+  font-family: var(--font-space), monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  box-shadow: 7px 7px 0 var(--red);
+}
+
+.pendingPixTab strong {
+  color: var(--red);
+}
+
 .cartOverlay {
   justify-items: end;
 }
@@ -1100,13 +1142,22 @@ h2 {
 .accountDrawer {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(480px, 100%);
+  width: min(560px, 100%);
   height: calc(100dvh - 36px);
   max-height: 100%;
   min-height: 0;
   border: 2px solid var(--black);
   background: var(--red);
   color: var(--black);
+}
+
+.cartDrawer.isPaying {
+  width: min(560px, 100%);
+}
+
+.cartDrawer.isPaying .cartFooter {
+  border-top: 0;
+  padding-top: 10px;
 }
 
 .accountDrawer {
@@ -1152,6 +1203,137 @@ h2 {
   border: 2px solid var(--black);
   background: var(--white);
   padding: 11px;
+}
+
+.ordersPanel {
+  display: grid;
+  gap: 10px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  padding: 11px;
+}
+
+.ordersHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ordersHeader span,
+.ordersTabs,
+.ordersList p,
+.orderItem span,
+.orderItem small,
+.orderItem button {
+  font-family: var(--font-space), monospace;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.ordersHeader span,
+.orderItem span,
+.orderItem small,
+.ordersList p {
+  font-size: 11px;
+}
+
+.ordersHeader strong {
+  font-family: var(--font-archivo), Impact, sans-serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.ordersTabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ordersTabs button {
+  display: grid;
+  gap: 3px;
+  min-height: 48px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  padding: 6px;
+  font: inherit;
+  text-align: left;
+}
+
+.ordersTabs button.isActive {
+  background: var(--black);
+  color: var(--white);
+}
+
+.ordersTabs button span {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+}
+
+.ordersTabs button strong {
+  font-size: 16px;
+}
+
+.ordersList {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.ordersList p {
+  margin: 0;
+  border: 2px solid var(--black);
+  padding: 10px;
+}
+
+.orderItem {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 9px;
+  border: 2px solid var(--black);
+  padding: 8px;
+}
+
+.orderItem img {
+  width: 62px;
+  height: 62px;
+  border: 2px solid var(--black);
+  object-fit: cover;
+}
+
+.orderItem div {
+  display: grid;
+  gap: 5px;
+}
+
+.orderItem strong {
+  font-family: var(--font-archivo), Impact, sans-serif;
+  font-size: 21px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.orderItem small {
+  color: var(--gray);
+}
+
+.orderItem button {
+  min-height: 34px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  font-size: 11px;
 }
 
 .accountIdentity strong,
@@ -1239,7 +1421,8 @@ h2 {
 }
 
 .ticketPanel button,
-.partnerPanel button {
+.partnerPanel button,
+.ordersShortcutPanel button {
   min-height: 42px;
   border: 2px solid var(--black);
   border-radius: 999px;
@@ -1265,7 +1448,7 @@ h2 {
 
 .accountToast {
   position: fixed;
-  right: 24px;
+  left: 24px;
   bottom: 24px;
   z-index: 90;
   max-width: min(420px, calc(100vw - 48px));
@@ -1278,23 +1461,25 @@ h2 {
 }
 
 .ticketPanel button:hover,
-.partnerPanel button:hover {
+.partnerPanel button:hover,
+.ordersShortcutPanel button:hover {
   color: var(--red);
   transform: translateX(4px) scale(1.03);
 }
 
 .cartHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 18px;
   border-bottom: 2px solid var(--black);
-  padding: 18px;
+  padding: 14px 18px;
 }
 
 .cartHeader h2 {
-  margin-top: 8px;
-  font-size: clamp(42px, 6vw, 64px);
+  margin-top: 4px;
+  font-size: clamp(42px, 5vw, 64px);
+  line-height: 0.82;
 }
 
 .cartLines {
@@ -1315,26 +1500,29 @@ h2 {
 
 .cartLine {
   display: grid;
-  grid-template-columns: 92px 1fr;
-  gap: 12px;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
   border: 2px solid var(--black);
   background: var(--white);
-  padding: 10px;
+  padding: 8px;
 }
 
 .cartLine img {
+  width: 84px;
+  height: 84px;
   aspect-ratio: 1;
   border: 2px solid var(--black);
+  object-fit: cover;
 }
 
 .cartLine div {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cartLine strong {
   font-family: var(--font-archivo), Impact, sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 400;
   letter-spacing: -0.04em;
   line-height: 0.9;
@@ -1348,7 +1536,7 @@ h2 {
 
 .cartQty {
   display: grid;
-  grid-template-columns: 34px 42px 34px 34px;
+  grid-template-columns: 32px 40px 32px 32px;
   gap: 5px;
   align-items: center;
 }
@@ -1367,9 +1555,9 @@ h2 {
 
 .cartFooter {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   border-top: 2px solid var(--black);
-  padding: 14px;
+  padding: 12px 14px;
 }
 
 .cartFooter div {
@@ -1377,19 +1565,97 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  min-height: 58px;
   border: 2px solid var(--black);
   background: var(--white);
-  padding: 14px;
+  padding: 10px 14px;
 }
 
 .cartFooter strong {
-  font-size: 24px;
+  font-size: 22px;
+}
+
+.cartTotalPrice {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cartTotalPrice s {
+  color: var(--gray);
+  font-size: 16px;
+  text-decoration-thickness: 2px;
 }
 
 .cartFooter button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
+}
+
+.pixPaymentBox {
+  display: grid;
+  gap: 12px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  padding: 16px;
+  text-align: center;
+}
+
+.pixPaymentBox img {
+  width: min(300px, 72vw, 100%);
+  justify-self: center;
+  border: 2px solid var(--black);
+  background: var(--white);
+}
+
+.pixPaymentBox span,
+.pixPaymentBox p {
+  margin: 0;
+  font-family: var(--font-space), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.pixPaymentBox strong {
+  font-family: var(--font-archivo), Impact, sans-serif;
+  font-size: clamp(28px, 5vw, 42px);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+.pixActions {
+  display: grid;
+  gap: 8px;
+}
+
+.pixPaymentBox button,
+.pixPaymentBox a {
+  display: grid;
+  min-height: 46px;
+  place-items: center;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  padding: 0 14px;
+  font-family: var(--font-space), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pixPaymentBox a {
+  background: var(--white);
+  color: var(--black);
 }
 
 .cartCoupon {
@@ -1623,7 +1889,7 @@ h2 {
 
 .hellpointsToast {
   position: fixed;
-  right: 18px;
+  left: 18px;
   bottom: 18px;
   z-index: 80;
   max-width: min(420px, calc(100vw - 36px));
@@ -1634,6 +1900,452 @@ h2 {
   box-shadow: 7px 7px 0 var(--white);
   padding: 14px 16px;
   font-size: 13px;
+}
+
+.ordersPage {
+  min-height: 100vh;
+  background: #f4f6f8;
+  color: #111827;
+  padding: 24px;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.ordersTopbar {
+  position: static;
+  display: grid;
+  grid-template-columns: auto;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 24px;
+}
+
+.ordersTopbar button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ordersHero {
+  display: grid;
+  gap: 6px;
+  padding: 0 0 24px;
+}
+
+.ordersHero p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ordersHero h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 48px);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.ordersWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  gap: 16px;
+  padding-top: 0;
+}
+
+.ordersStatusRail,
+.ordersCatalog,
+.orderDetailsPanel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.orderDetailsPanel {
+  position: sticky;
+  top: 20px;
+}
+
+.ordersStatusRail {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 34px;
+  overflow-x: auto;
+  border-bottom: 1px solid #d8dee8;
+  background: #ffffff;
+  padding: 0 4px;
+}
+
+.ordersStatusRail button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  padding: 0 0 12px;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.ordersStatusRail button.isActive {
+  color: #111827;
+}
+
+.ordersStatusRail button.isActive::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: #ef321f;
+  content: "";
+}
+
+.orderProductCard,
+.orderDetailsPanel,
+.ordersEmpty {
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.orderProductCard {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+}
+
+.orderProductCard.isSelected {
+  border-color: #ef321f;
+  box-shadow: 0 0 0 3px rgba(239, 50, 31, 0.12);
+}
+
+.orderProductCard img {
+  width: 86px;
+  height: 86px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.orderProductCard div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.orderProductCard span,
+.orderProductCard p,
+.orderProductCard button,
+.orderDetailHeader span,
+.orderDetailHeader p,
+.orderTimeline,
+.orderPixBox,
+.orderItemsList,
+.ordersEmpty span {
+  font: inherit;
+  font-weight: 700;
+}
+
+.orderProductCard span,
+.orderProductCard p,
+.orderDetailHeader span,
+.orderDetailHeader p,
+.orderTimeline,
+.orderPixBox,
+.orderItemsList,
+.ordersEmpty span {
+  font-size: 13px;
+}
+
+.orderProductCard h2,
+.orderProductCard strong,
+.orderDetailHeader strong,
+.ordersEmpty strong {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.orderProductCard h2 {
+  overflow-wrap: anywhere;
+  font-size: clamp(18px, 2.4vw, 24px);
+}
+
+.orderProductCard p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.orderProductCard strong {
+  font-size: 20px;
+}
+
+.orderProductCard button,
+.orderPixBox button,
+.orderPixBox a {
+  display: grid;
+  place-items: center;
+  min-height: 40px;
+  border: 1px solid #111827;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.orderDetailsPanel {
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.orderDetailHeader {
+  display: grid;
+  gap: 7px;
+  border-bottom: 1px solid #d8dee8;
+  padding-bottom: 14px;
+}
+
+.orderDetailHeader strong,
+.ordersEmpty strong {
+  font-size: 30px;
+}
+
+.orderDetailHeader p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.orderTimeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.orderTimeline span {
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  padding: 8px;
+  color: #6b7280;
+}
+
+.orderTimeline span.isDone {
+  border-color: #16a34a;
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.orderPixBox {
+  display: grid;
+  gap: 9px;
+  border: 1px solid #ef321f;
+  border-radius: 10px;
+  background: #fff7f5;
+  padding: 12px;
+  text-align: center;
+}
+
+.orderPixBox img {
+  width: min(260px, 100%);
+  justify-self: center;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.orderPixBox button,
+.orderPixBox a {
+  grid-template-columns: auto auto;
+  justify-content: center;
+  gap: 8px;
+}
+
+.orderPixBox a {
+  background: #ffffff;
+  color: #111827;
+}
+
+.orderPixBox p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.orderItemsList {
+  display: grid;
+  gap: 8px;
+}
+
+.orderItemsList div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.ordersEmpty {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.ordersEmpty strong {
+  font-size: 24px;
+}
+
+.checkoutPage {
+  min-height: 100vh;
+  background: #f4f6f8;
+  color: #111827;
+  padding: 24px;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.checkoutTopbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.checkoutTopbar button,
+.checkoutPaymentBox button,
+.checkoutPaymentBox a,
+.checkoutState button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border: 1px solid #111827;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.checkoutTopbar button:first-child,
+.checkoutPaymentBox a,
+.checkoutPaymentBox button.secondary {
+  border-color: #d8dee8;
+  background: #ffffff;
+  color: #111827;
+}
+
+.checkoutShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+  gap: 18px;
+  align-items: start;
+}
+
+.checkoutSummary,
+.checkoutPaymentBox {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 20px;
+}
+
+.checkoutSummary span,
+.checkoutSummary p,
+.checkoutItems,
+.checkoutPaymentBox,
+.checkoutState {
+  font: inherit;
+  font-weight: 700;
+}
+
+.checkoutSummary span {
+  color: #6b7280;
+}
+
+.checkoutSummary h1 {
+  margin: 0;
+  font-size: clamp(34px, 6vw, 74px);
+  font-weight: 900;
+  line-height: 0.98;
+}
+
+.checkoutSummary > strong {
+  font-size: 34px;
+}
+
+.checkoutSummary p,
+.checkoutState p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.checkoutItems {
+  display: grid;
+  gap: 8px;
+}
+
+.checkoutItems div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.checkoutPaymentBox {
+  position: sticky;
+  top: 24px;
+  text-align: center;
+}
+
+.checkoutPaymentBox img {
+  width: min(320px, 100%);
+  justify-self: center;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.checkoutState {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px 0;
+}
+
+.checkoutState strong {
+  font-size: 22px;
 }
 
 .authModal {
@@ -2438,7 +3150,7 @@ h2 {
 
 .partnerToast {
   position: fixed;
-  right: 24px;
+  left: 24px;
   bottom: 24px;
   z-index: 80;
   border: 1px solid #111827;
@@ -2662,6 +3374,18 @@ h2 {
   }
 }
 
+@media (max-width: 1100px) {
+  .ordersWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .orderDetailsPanel {
+    position: static;
+    grid-column: 1 / -1;
+    max-height: none;
+  }
+}
+
 @media (max-width: 900px) {
   .adminShell {
     grid-template-columns: 1fr;
@@ -2793,6 +3517,106 @@ h2 {
     padding: 10px;
   }
 
+  .cartDrawer {
+    width: min(520px, 100%);
+    height: calc(100dvh - 20px);
+  }
+
+  .cartDrawer.isPaying {
+    width: min(540px, 100%);
+  }
+
+  .cartDrawer .cartHeader {
+    padding: 9px 12px;
+  }
+
+  .cartDrawer .cartHeader span {
+    font-size: 12px;
+  }
+
+  .cartDrawer .cartHeader h2 {
+    font-size: 44px;
+    line-height: 0.82;
+  }
+
+  .cartDrawer .closeModal {
+    width: 44px;
+    height: 44px;
+  }
+
+  .cartLines {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .cartLine {
+    grid-template-columns: 70px 1fr;
+    gap: 8px;
+    padding: 7px;
+  }
+
+  .cartLine img {
+    width: 70px;
+    height: 70px;
+  }
+
+  .cartLine strong {
+    font-size: 18px;
+    line-height: 0.92;
+  }
+
+  .cartLine small {
+    font-size: 10px;
+  }
+
+  .cartQty {
+    grid-template-columns: 28px 36px 28px 28px;
+  }
+
+  .cartQty span,
+  .cartQty button {
+    min-height: 28px;
+  }
+
+  .cartFooter {
+    gap: 7px;
+    padding: 10px;
+  }
+
+  .cartFooter div {
+    min-height: 50px;
+    padding: 8px 12px;
+  }
+
+  .cartFooter strong {
+    font-size: 20px;
+  }
+
+  .cartTotalPrice {
+    gap: 8px;
+  }
+
+  .cartTotalPrice s {
+    font-size: 14px;
+  }
+
+  .cartFooter button {
+    min-height: 46px;
+  }
+
+  .pixPaymentBox {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .pixPaymentBox strong {
+    font-size: 30px;
+  }
+
+  .pixPaymentBox img {
+    width: min(220px, 58vw, 100%);
+  }
+
   .accountDrawer {
     width: min(380px, 100%);
     height: calc(100dvh - 20px);
@@ -2844,6 +3668,81 @@ h2 {
 }
 
 @media (max-width: 560px) {
+  .ordersPage {
+    padding: 14px;
+  }
+
+  .ordersTopbar {
+    position: static;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .ordersHero {
+    padding: 30px 0 20px;
+  }
+
+  .ordersHero h1 {
+    font-size: 54px;
+  }
+
+  .ordersWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .ordersStatusRail {
+    gap: 22px;
+  }
+
+  .orderProductCard {
+    grid-template-columns: 82px 1fr;
+  }
+
+  .orderProductCard img {
+    width: 82px;
+    height: 82px;
+  }
+
+  .orderProductCard button {
+    grid-column: 1 / -1;
+  }
+
+  .orderTimeline {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .orderItemsList div {
+    grid-template-columns: auto 1fr;
+  }
+
+  .orderItemsList small {
+    grid-column: 2;
+  }
+
+  .checkoutPage {
+    padding: 14px;
+  }
+
+  .checkoutTopbar {
+    flex-direction: column;
+  }
+
+  .checkoutShell {
+    grid-template-columns: 1fr;
+  }
+
+  .checkoutPaymentBox {
+    position: static;
+  }
+
+  .checkoutItems div {
+    grid-template-columns: auto 1fr;
+  }
+
+  .checkoutItems small {
+    grid-column: 2;
+  }
+
   .adminWorkspace {
     padding: 16px;
   }
@@ -3229,6 +4128,14 @@ h2 {
     width: 100%;
   }
 
+  .cartDrawer.isPaying {
+    width: 100%;
+  }
+
+  .pixPaymentBox {
+    padding: 12px;
+  }
+
   .accountDrawer {
     width: 100%;
     height: 100%;
@@ -3311,12 +4218,23 @@ h2 {
   }
 
   .accountToast,
-  .hellpointsToast {
+  .cartToast,
+  .hellpointsToast,
+  .pendingPixTab {
     left: 14px;
     right: 14px;
     bottom: 14px;
     max-width: none;
+  }
+
+  .accountToast,
+  .cartToast,
+  .hellpointsToast {
     text-align: center;
+  }
+
+  .pendingPixTab {
+    justify-content: center;
   }
 
   .footerRibbon {

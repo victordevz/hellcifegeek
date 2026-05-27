@@ -2,7 +2,7 @@
 
 import gsap from "gsap";
 import type { FormEvent } from "react";
-import { ArrowUp, ArrowUpRight, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, Clock3, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -36,9 +36,9 @@ const navItems = [
 ];
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
-const whatsappNumber = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+5581981472018").replace(/\D/g, "");
 const productsPerPage = 6;
 const cartStorageKey = "hellcifegeek.cart";
+const pendingPixStorageKey = "hellcifegeek.pendingPix";
 const phoneCouponCode = "CELULAR5";
 const phoneCouponDiscountRate = 0.05;
 
@@ -79,6 +79,20 @@ type CartItem = {
   quantity: number;
 };
 
+type PixPayment = {
+  id: string;
+  status: "pending" | "approved" | "rejected" | "cancelled" | "expired" | "refunded";
+  totalCents: number;
+  cashback: number;
+  items?: Array<{ productId?: string; name: string; quantity: number; priceCents: number }>;
+  pixQrCode?: string;
+  pixQrCodeBase64?: string;
+  pixTicketUrl?: string;
+  createdAt?: string;
+  expiresAt?: string;
+  reusedPending?: boolean;
+};
+
 function formatPrice(product: ApiProduct) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -91,6 +105,10 @@ function formatCents(value: number) {
     style: "currency",
     currency: "BRL"
   }).format(value / 100);
+}
+
+function isPendingPixExpired(payment: PixPayment | null) {
+  return Boolean(payment?.expiresAt && new Date(payment.expiresAt).getTime() <= Date.now());
 }
 
 function formatHellpoints(value: unknown) {
@@ -118,11 +136,6 @@ function stockLabel(product: ApiProduct) {
   }
 
   return stock <= 5 ? "Estoque limitado" : `${stock} em estoque`;
-}
-
-function whatsappUrl(message: string) {
-  const baseUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : "https://wa.me/";
-  return `${baseUrl}?text=${encodeURIComponent(message)}`;
 }
 
 function ChromeMark() {
@@ -249,6 +262,9 @@ export default function Page() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [cartLoaded, setCartLoaded] = useState(false);
   const [cartMessage, setCartMessage] = useState("");
+  const [pixPayment, setPixPayment] = useState<PixPayment | null>(null);
+  const [isCreatingPix, setIsCreatingPix] = useState(false);
+  const [orders, setOrders] = useState<PixPayment[]>([]);
   const loginModalRef = useRef<HTMLDivElement>(null);
   const signupModalRef = useRef<HTMLDivElement>(null);
   const categoriesById = useMemo(() => {
@@ -285,6 +301,7 @@ export default function Page() {
   const couponDiscountCents = appliedCouponCode ? Math.round(cartTotalCents * appliedCouponDiscountRate) : 0;
   const cartFinalTotalCents = Math.max(0, cartTotalCents - couponDiscountCents);
   const cartCashback = cashbackFor(cartFinalTotalCents);
+  const pendingOrders = orders.filter((order) => order.status === "pending" && !isPendingPixExpired(order));
 
   function selectCategory(category: string) {
     setActiveCategory(category);
@@ -411,6 +428,127 @@ export default function Page() {
   }, [cartItems, cartLoaded]);
 
   useEffect(() => {
+    if (!currentUser) {
+      setOrders([]);
+      return;
+    }
+
+    void refreshOrders();
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    try {
+      const storedPayment = localStorage.getItem(pendingPixStorageKey);
+
+      if (!storedPayment) {
+        return;
+      }
+
+      const parsedPayment = JSON.parse(storedPayment) as PixPayment;
+
+      if (parsedPayment?.status === "pending" && !isPendingPixExpired(parsedPayment)) {
+        setPixPayment(parsedPayment);
+      } else {
+        localStorage.removeItem(pendingPixStorageKey);
+      }
+    } catch {
+      localStorage.removeItem(pendingPixStorageKey);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!pixPayment) {
+      localStorage.removeItem(pendingPixStorageKey);
+      return;
+    }
+
+    if (pixPayment.status === "pending" && !isPendingPixExpired(pixPayment)) {
+      localStorage.setItem(pendingPixStorageKey, JSON.stringify(pixPayment));
+      return;
+    }
+
+    localStorage.removeItem(pendingPixStorageKey);
+  }, [pixPayment]);
+
+  useEffect(() => {
+    if (!pixPayment || pixPayment.status !== "pending") {
+      return;
+    }
+
+    if (isPendingPixExpired(pixPayment)) {
+      setPixPayment({ ...pixPayment, status: "expired" });
+      setCartMessage("Pix expirado. Gere um novo pagamento.");
+      return;
+    }
+
+    const intervalId = window.setInterval(async () => {
+      const token = localStorage.getItem("hellcifegeek.token");
+
+      if (!token) {
+        return;
+      }
+
+      const response = await fetch(`${apiUrl}/payments/${pixPayment.id}`, {
+        headers: { authorization: `Bearer ${token}` },
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const payment = await response.json() as PixPayment;
+      setPixPayment(payment);
+      setOrders((currentOrders) => {
+        const existing = currentOrders.some((order) => order.id === payment.id);
+        return existing
+          ? currentOrders.map((order) => order.id === payment.id ? payment : order)
+          : [payment, ...currentOrders];
+      });
+
+      if (payment.status === "approved") {
+        setCartItems([]);
+        setCouponCode("");
+        setAppliedCouponCode("");
+        setAppliedCouponDiscountRate(0);
+        setCouponMessage("");
+        setCartMessage(`Pix aprovado. ${payment.cashback} hellpoints adicionados.`);
+        void refreshCurrentUser();
+        void refreshOrders();
+      } else if (payment.status === "expired") {
+        setCartMessage("Pix expirado. Gere um novo pagamento.");
+      }
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [pixPayment]);
+
+  useEffect(() => {
+    if (!pixPayment?.expiresAt || pixPayment.status !== "pending") {
+      return;
+    }
+
+    const expiresInMs = new Date(pixPayment.expiresAt).getTime() - Date.now();
+
+    if (expiresInMs <= 0) {
+      setPixPayment({ ...pixPayment, status: "expired" });
+      setCartMessage("Pix expirado. Gere um novo pagamento.");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPixPayment((currentPayment) => (
+        currentPayment?.id === pixPayment.id && currentPayment.status === "pending"
+          ? { ...currentPayment, status: "expired" }
+          : currentPayment
+      ));
+      setCartMessage("Pix expirado. Gere um novo pagamento.");
+    }, expiresInMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [pixPayment]);
+
+  useEffect(() => {
     if (!cartLoaded || isProductsLoading) {
       return;
     }
@@ -424,6 +562,18 @@ export default function Page() {
       setCouponMessage("");
     }
   }, [appliedCouponCode, hasPhoneCoupon]);
+
+  useEffect(() => {
+    if (!cartMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCartMessage("");
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [cartMessage]);
 
   function getAuthModalElement(modal = authModal) {
     if (modal === "login") {
@@ -608,6 +758,7 @@ export default function Page() {
   function logout() {
     localStorage.removeItem("hellcifegeek.token");
     localStorage.removeItem("hellcifegeek.user");
+    localStorage.removeItem(pendingPixStorageKey);
     setCurrentUser(null);
     setAccountOpen(false);
     setAccountPhone("");
@@ -616,6 +767,8 @@ export default function Page() {
     setCouponCode("");
     setAppliedCouponCode("");
     setCouponMessage("");
+    setOrders([]);
+    setPixPayment(null);
   }
 
   async function refreshCurrentUser() {
@@ -642,44 +795,28 @@ export default function Page() {
     return user;
   }
 
-  async function registerCashback(totalCents: number, purchase?: {
-    subtotalCents: number;
-    couponCode?: string;
-    items: Array<{ productId: string; name: string; quantity: number; priceCents: number }>;
-  }) {
+  async function refreshOrders() {
     const token = localStorage.getItem("hellcifegeek.token");
 
-    if (!token || totalCents <= 0) {
-      return 0;
+    if (!token) {
+      setOrders([]);
+      return [];
     }
 
-    try {
-      const response = await fetch(`${apiUrl}/auth/me/hellpoints/cashback`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          totalCents,
-          subtotalCents: purchase?.subtotalCents,
-          couponCode: purchase?.couponCode,
-          items: purchase?.items
-        })
-      });
+    const response = await fetch(`${apiUrl}/payments`, {
+      headers: { authorization: `Bearer ${token}` },
+      cache: "no-store"
+    });
 
-      if (!response.ok) {
-        return 0;
-      }
-
-      const data = await response.json() as { user: AuthUser; cashback: number };
-      localStorage.setItem("hellcifegeek.user", JSON.stringify(data.user));
-      setCurrentUser(data.user);
-      setAccountPhone(data.user.phone ?? "");
-      return data.cashback;
-    } catch {
-      return 0;
+    if (!response.ok) {
+      return orders;
     }
+
+    const data = await response.json() as PixPayment[];
+    setOrders(data);
+    const activePayment = data.find((payment) => payment.status === "pending" && !isPendingPixExpired(payment));
+    setPixPayment((currentPayment) => currentPayment ?? activePayment ?? null);
+    return data;
   }
 
   async function applyCoupon(event: FormEvent<HTMLFormElement>) {
@@ -704,7 +841,7 @@ export default function Page() {
       setAppliedCouponCode(phoneCouponCode);
       setAppliedCouponDiscountRate(phoneCouponDiscountRate);
       setCouponCode(phoneCouponCode);
-      setCouponMessage("Cupom de 5% aplicado.");
+      setCouponMessage("");
       return;
     }
 
@@ -721,7 +858,7 @@ export default function Page() {
     setAppliedCouponCode(data.code);
     setAppliedCouponDiscountRate((data.discountPercent || 5) / 100);
     setCouponCode(data.code);
-    setCouponMessage(data.partnerName ? `Cupom de ${data.partnerName} aplicado.` : "Cupom de parceiro aplicado.");
+    setCouponMessage("");
   }
 
   async function updateAccountPhone(nextPhone: string) {
@@ -765,65 +902,77 @@ export default function Page() {
     await updateAccountPhone("");
   }
 
-  function openWhatsApp(message: string) {
-    window.open(whatsappUrl(message), "_blank", "noopener,noreferrer");
-  }
-
-  async function checkoutProduct(product: ApiProduct, quantity: number) {
+  function checkoutProduct(product: ApiProduct, quantity: number) {
     if (!product.active || stockFor(product) <= 0) {
       setCartMessage("Produto indisponivel.");
       return;
     }
 
-    const totalCents = product.priceCents * quantity;
-    const expectedCashback = cashbackFor(totalCents);
-    const creditedCashback = await registerCashback(totalCents);
-    const message = [
-      "Oi! Tenho interesse em comprar este item da Hellcife Geek:",
-      `${quantity}x ${product.name}`,
-      `Valor: ${formatCents(totalCents)}`,
-      `Cashback Hellpoints: ${expectedCashback} pontos`,
-      "",
-      "Podemos negociar?"
-    ].join("\n");
-
-    openWhatsApp(message);
-    setCartMessage(creditedCashback > 0 ? `Abrindo conversa. ${creditedCashback} hellpoints adicionados.` : "Abrindo conversa no WhatsApp.");
+    addToCart(product, quantity);
+    setSelectedProduct(null);
+    setCartOpen(true);
+    setCartMessage("Item adicionado. Finalize com Pix para ganhar Hellpoints.");
   }
 
-  async function checkoutCart() {
+  async function checkoutPix() {
     if (cartLines.length === 0) {
       setCartMessage("Adicione um item ao carrinho antes de finalizar.");
       return;
     }
 
-    const message = [
-      "Oi! Tenho interesse em comprar estes itens da Hellcife Geek:",
-      "",
-      ...cartLines.map((line) => (
-        `- ${line.item.quantity}x ${line.product.name} (${formatCents(line.product.priceCents)} cada) = ${formatCents(line.product.priceCents * line.item.quantity)}`
-      )),
-      "",
-      `Subtotal: ${formatCents(cartTotalCents)}`,
-      ...(couponDiscountCents > 0 ? [`Cupom ${appliedCouponCode}: -${formatCents(couponDiscountCents)}`] : []),
-      `Total: ${formatCents(cartFinalTotalCents)}`,
-      `Cashback Hellpoints: ${cartCashback} pontos`,
-      "",
-      "Podemos negociar?"
-    ].join("\n");
+    const token = localStorage.getItem("hellcifegeek.token");
 
-    const creditedCashback = await registerCashback(cartFinalTotalCents, {
-      subtotalCents: cartTotalCents,
-      couponCode: appliedCouponCode,
-      items: cartLines.map((line) => ({
-        productId: line.product.id,
-        name: line.product.name,
-        quantity: line.item.quantity,
-        priceCents: line.product.priceCents
-      }))
-    });
-    openWhatsApp(message);
-    setCartMessage(creditedCashback > 0 ? `Abrindo conversa. ${creditedCashback} hellpoints adicionados.` : "Abrindo conversa no WhatsApp.");
+    if (!token) {
+      setCartOpen(false);
+      setCartMessage("Entre na conta para pagar com Pix.");
+      openAuthModal("login");
+      return;
+    }
+
+    setIsCreatingPix(true);
+    setCartMessage("");
+    setPixPayment(null);
+
+    try {
+      const response = await fetch(`${apiUrl}/payments/pix`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          subtotalCents: cartTotalCents,
+          totalCents: cartFinalTotalCents,
+          couponCode: appliedCouponCode,
+          items: cartLines.map((line) => ({
+            productId: line.product.id,
+            name: line.product.name,
+            quantity: line.item.quantity,
+            priceCents: line.product.priceCents
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null) as { message?: string } | null;
+        setCartMessage(error?.message || "Não foi possível gerar o Pix.");
+        return;
+      }
+
+      const payment = await response.json() as PixPayment;
+      setPixPayment(payment);
+      setOrders((currentOrders) => [payment, ...currentOrders.filter((order) => order.id !== payment.id)]);
+      setCartItems([]);
+      setCouponCode("");
+      setAppliedCouponCode("");
+      setAppliedCouponDiscountRate(0);
+      setCouponMessage("");
+      setCartOpen(false);
+      setCartMessage(payment.reusedPending ? "Você já tem um Pix pendente para este produto." : "Pedido criado. Continue para o pagamento.");
+      router.push(`/checkout/${payment.id}`);
+    } finally {
+      setIsCreatingPix(false);
+    }
   }
 
   async function submitManualLogin(event: FormEvent<HTMLFormElement>) {
@@ -1134,7 +1283,6 @@ export default function Page() {
                   Colocar no carrinho
                 </button>
               </div>
-              {cartMessage && <p className="cartMessage">{cartMessage}</p>}
             </div>
           </section>
         </div>
@@ -1190,42 +1338,52 @@ export default function Page() {
             </div>
 
             <div className="cartFooter">
-              <form className="cartCoupon" onSubmit={applyCoupon}>
-                <label>
-                  Cupom
-                  <input
-                    value={couponCode}
-                    onChange={(event) => setCouponCode(event.target.value)}
-                    placeholder={hasPhoneCoupon ? phoneCouponCode : "Adicione celular na conta"}
-                  />
-                </label>
-                <button type="submit" disabled={cartLines.length === 0}>Aplicar</button>
-              </form>
-              {couponMessage && <p className="cartMessage">{couponMessage}</p>}
-              <div>
-                <span>Subtotal</span>
-                <strong>{formatCents(cartTotalCents)}</strong>
-              </div>
-              {couponDiscountCents > 0 && (
-                <div>
-                  <span>{appliedCouponCode}</span>
-                  <strong>-{formatCents(couponDiscountCents)}</strong>
-                </div>
+              {!appliedCouponCode && (
+                <form className="cartCoupon" onSubmit={applyCoupon}>
+                  <label>
+                    Cupom
+                    <input
+                      value={couponCode}
+                      onChange={(event) => setCouponCode(event.target.value)}
+                      placeholder={hasPhoneCoupon ? phoneCouponCode : "Adicione celular na conta"}
+                    />
+                  </label>
+                  <button type="submit" disabled={cartLines.length === 0}>Aplicar</button>
+                </form>
               )}
+              {couponMessage && !appliedCouponCode && <p className="cartMessage">{couponMessage}</p>}
               <div>
-                <span>Total</span>
-                <strong>{formatCents(cartFinalTotalCents)}</strong>
+                <span>{couponDiscountCents > 0 ? `Total com ${appliedCouponCode}` : "Total"}</span>
+                <strong className="cartTotalPrice">
+                  {couponDiscountCents > 0 && <s>{formatCents(cartTotalCents)}</s>}
+                  {formatCents(cartFinalTotalCents)}
+                </strong>
               </div>
-              <button type="button" disabled={cartLines.length === 0} onClick={checkoutCart}>
-                Finalizar compra
+              <button type="button" disabled={cartLines.length === 0 || isCreatingPix} onClick={checkoutPix}>
+                {isCreatingPix ? "Criando pedido..." : "Pagar com Pix"}
               </button>
               <button type="button" onClick={() => setCartOpen(false)}>
                 Continuar comprando
               </button>
-              {cartMessage && <p className="cartMessage">{cartMessage}</p>}
+              {pendingOrders.length > 0 && (
+                <button type="button" onClick={() => {
+                  setCartOpen(false);
+                  router.push("/pedidos");
+                }}>
+                  Ver pedidos pendentes
+                </button>
+              )}
             </div>
           </aside>
         </div>
+      )}
+
+      {pendingOrders.length > 0 && !cartOpen && !accountOpen && (
+        <button type="button" className="pendingPixTab" onClick={() => router.push("/pedidos")}>
+          <Clock3 size={18} strokeWidth={3} />
+          <span>Pedidos pendentes</span>
+          <strong>{pendingOrders.length}</strong>
+        </button>
       )}
 
       {accountOpen && currentUser && (
@@ -1286,6 +1444,12 @@ export default function Page() {
                   </div>
                 </form>
               )}
+
+              <div className="accountPanel ordersShortcutPanel">
+                <span>Meus pedidos</span>
+                <strong>{pendingOrders.length > 0 ? `${pendingOrders.length} pagamento(s) pendente(s)` : "Acompanhar compras"}</strong>
+                <button type="button" onClick={() => router.push("/pedidos")}>Ver pedidos</button>
+              </div>
 
               <div className="accountPanel">
                 <span>Cupons disponiveis</span>
@@ -1469,6 +1633,7 @@ export default function Page() {
           </form>
         </section>
       </div>
+      {cartMessage && <p className="cartToast">{cartMessage}</p>}
     </main>
   );
 }
