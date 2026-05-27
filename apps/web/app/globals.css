@@ -518,6 +518,11 @@ h2 {
   transition: transform 160ms linear, background 160ms linear;
 }
 
+.productCard.isSoldOut {
+  background: var(--white);
+  color: var(--black);
+}
+
 .productCard:focus-visible {
   background: var(--black);
   color: var(--white);
@@ -545,6 +550,10 @@ h2 {
   object-position: center;
   filter: grayscale(0) contrast(1);
   transition: transform 180ms linear, filter 180ms linear;
+}
+
+.productCard.isSoldOut .productImage img {
+  filter: grayscale(1) contrast(1.18);
 }
 
 .productImage span {
@@ -622,19 +631,33 @@ h2 {
   transition: transform 160ms linear;
 }
 
+.productCard.isSoldOut .productBody button {
+  color: var(--red);
+}
+
+.productCard.isSoldOut .productBody button span {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.productCard.isSoldOut .productBody button svg {
+  display: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .productCard:hover {
+  .productCard:not(.isSoldOut):hover {
     background: var(--black);
     color: var(--white);
     transform: translateX(4px);
   }
 
-  .productCard:hover .productImage img {
+  .productCard:not(.isSoldOut):hover .productImage img {
     filter: grayscale(1) contrast(1.45);
     transform: scale(1.03);
   }
 
-  .productCard:hover .productBody button svg {
+  .productCard:not(.isSoldOut):hover .productBody button svg {
     transform: rotate(45deg) scale(1.1);
   }
 }

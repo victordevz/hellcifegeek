@@ -132,7 +132,7 @@ function stockLabel(product: ApiProduct) {
   const stock = stockFor(product);
 
   if (!product.active || stock === 0) {
-    return "Indisponivel";
+    return "SOLD OUT";
   }
 
   return stock <= 5 ? "Estoque limitado" : `${stock} em estoque`;
@@ -1197,7 +1197,7 @@ export default function Page() {
           {displayedProducts.map((product) => (
             <article
               key={product.id}
-              className="productCard"
+              className={`productCard ${stockFor(product) <= 0 || !product.active ? "isSoldOut" : ""}`}
               role="button"
               tabIndex={0}
               onClick={() => openProduct(product)}
