@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { PartnerPurchaseItem, PublicUser, RequestUser, User, UserRole } from "../domain";
+import { Database, PartnerPurchaseItem, PublicUser, RequestUser, User, UserRole } from "../domain";
 import { JsonStoreService } from "../storage/json-store.service";
 
 const scrypt = promisify(scryptCallback);
@@ -23,6 +23,10 @@ type LoginInput = {
 const signupHellpointsBonus = 50;
 const raffleTicketCost = 50;
 const partnerDiscountPercent = 5;
+const launchRaffleId = "launch-8bitdo-controller";
+const launchRaffleGoal = 125;
+const launchRaffleTitle = "Sorteio de lançamento";
+const launchRafflePrize = "Controle 8BitDo original";
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -230,7 +234,7 @@ export class AuthService implements OnModuleInit {
     const user = data.users.find((item) => item.id === userId);
 
     if (!user) {
-      throw new UnauthorizedException("Usuario nao encontrado");
+      throw new UnauthorizedException("Usuário não encontrado");
     }
 
     this.ensureUserCanAccess(user);
@@ -242,7 +246,7 @@ export class AuthService implements OnModuleInit {
     const user = data.users.find((item) => item.id === userId);
 
     if (!user) {
-      throw new UnauthorizedException("Usuario nao encontrado");
+      throw new UnauthorizedException("Usuário não encontrado");
     }
 
     this.ensureUserCanAccess(user);
@@ -277,6 +281,83 @@ export class AuthService implements OnModuleInit {
     await this.store.write(data);
 
     return this.toPublicUser(user);
+  }
+
+  async getLaunchRaffle(userId: string) {
+    const data = await this.store.read();
+    const user = data.users.find((item) => item.id === userId);
+
+    if (!user) {
+      throw new UnauthorizedException("Usuario nao encontrado");
+    }
+
+    this.ensureUserCanAccess(user);
+    return this.buildLaunchRaffleSummary(data, user.id);
+  }
+
+  async enterLaunchRaffle(userId: string) {
+    const data = await this.store.read();
+    const user = data.users.find((item) => item.id === userId);
+
+    if (!user) {
+      throw new UnauthorizedException("Usuario nao encontrado");
+    }
+
+    this.ensureUserCanAccess(user);
+    user.raffleTickets = this.normalizePoints(user.raffleTickets);
+
+    if (user.raffleTickets < 1) {
+      throw new BadRequestException("Você precisa ter pelo menos 1 ticket");
+    }
+
+    const now = new Date().toISOString();
+    const entry = data.raffleEntries.find((item) => item.raffleId === launchRaffleId && item.userId === user.id);
+    user.raffleTickets -= 1;
+
+    if (entry) {
+      entry.ticketCount = this.normalizePoints(entry.ticketCount) + 1;
+      entry.updatedAt = now;
+    } else {
+      data.raffleEntries.push({
+        id: crypto.randomUUID(),
+        raffleId: launchRaffleId,
+        userId: user.id,
+        ticketCount: 1,
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+
+    await this.store.write(data);
+
+    return {
+      user: this.toPublicUser(user),
+      raffle: this.buildLaunchRaffleSummary(data, user.id)
+    };
+  }
+
+  async getAdminLaunchRaffle() {
+    const data = await this.store.read();
+    const summary = this.buildLaunchRaffleSummary(data);
+    const participants = data.raffleEntries
+      .filter((entry) => entry.raffleId === launchRaffleId)
+      .map((entry) => {
+        const user = data.users.find((item) => item.id === entry.userId);
+
+        return {
+          userId: entry.userId,
+          name: user?.name ?? "Usuário removido",
+          email: user?.email ?? "sem-email",
+          ticketCount: this.normalizePoints(entry.ticketCount),
+          updatedAt: entry.updatedAt
+        };
+      })
+      .sort((left, right) => right.ticketCount - left.ticketCount || left.email.localeCompare(right.email));
+
+    return {
+      ...summary,
+      participants
+    };
   }
 
   async addCashback(userId: string, input: Record<string, unknown>) {
@@ -355,6 +436,28 @@ export class AuthService implements OnModuleInit {
       code: partner.partnerCouponCode,
       discountPercent: partner.partnerDiscountPercent || partnerDiscountPercent,
       partnerName: partner.name
+    };
+  }
+
+  private buildLaunchRaffleSummary(data: Database, userId?: string) {
+    const registeredCount = data.users.filter((user) => user.role !== "admin").length;
+    const entries = data.raffleEntries.filter((entry) => entry.raffleId === launchRaffleId);
+    const totalTickets = entries.reduce((total, entry) => total + this.normalizePoints(entry.ticketCount), 0);
+    const userTickets = userId
+      ? entries
+        .filter((entry) => entry.userId === userId)
+        .reduce((total, entry) => total + this.normalizePoints(entry.ticketCount), 0)
+      : 0;
+
+    return {
+      id: launchRaffleId,
+      title: launchRaffleTitle,
+      prize: launchRafflePrize,
+      goal: launchRaffleGoal,
+      registeredCount,
+      totalTickets,
+      userTickets,
+      unlocked: registeredCount >= launchRaffleGoal
     };
   }
 

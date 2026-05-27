@@ -29,6 +29,12 @@ export class AuthController {
     return this.auth.listUsers();
   }
 
+  @Get("admin/raffles/launch")
+  @UseGuards(AuthGuard, AdminGuard)
+  adminLaunchRaffle() {
+    return this.auth.getAdminLaunchRaffle();
+  }
+
   @Patch("admin/users/:id/ban")
   @UseGuards(AuthGuard, AdminGuard)
   adminBanUser(@Req() request: { user: RequestUser }, @Param("id") userId: string, @Body() body: unknown) {
@@ -82,6 +88,18 @@ export class AuthController {
   @UseGuards(AuthGuard)
   buyRaffleTicket(@Req() request: { user: RequestUser }) {
     return this.auth.buyRaffleTicket(request.user.id);
+  }
+
+  @Get("me/raffles/launch")
+  @UseGuards(AuthGuard)
+  launchRaffle(@Req() request: { user: RequestUser }) {
+    return this.auth.getLaunchRaffle(request.user.id);
+  }
+
+  @Post("me/raffles/launch/tickets")
+  @UseGuards(AuthGuard)
+  enterLaunchRaffle(@Req() request: { user: RequestUser }) {
+    return this.auth.enterLaunchRaffle(request.user.id);
   }
 
   @Get("partner/dashboard")

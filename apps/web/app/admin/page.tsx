@@ -46,6 +46,26 @@ type AdminUser = {
   createdAt: string;
 };
 
+type LaunchRaffleParticipant = {
+  userId: string;
+  name: string;
+  email: string;
+  ticketCount: number;
+  updatedAt: string;
+};
+
+type AdminLaunchRaffle = {
+  id: string;
+  title: string;
+  prize: string;
+  goal: number;
+  registeredCount: number;
+  totalTickets: number;
+  userTickets: number;
+  unlocked: boolean;
+  participants: LaunchRaffleParticipant[];
+};
+
 type ProductForm = {
   id?: string;
   name: string;
@@ -101,6 +121,7 @@ export default function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [launchRaffle, setLaunchRaffle] = useState<AdminLaunchRaffle | null>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -114,6 +135,7 @@ export default function AdminPage() {
   const totalStock = products.reduce((total, product) => total + product.stock, 0);
   const clientUsers = users.filter((user) => user.role === "client");
   const partnerUsers = users.filter((user) => user.role === "partner");
+  const launchRaffleProgress = Math.min(100, Math.round(((launchRaffle?.registeredCount ?? 0) / (launchRaffle?.goal || 125)) * 100));
 
   function authHeaders(authToken = token) {
     return {
@@ -157,8 +179,26 @@ export default function AdminPage() {
     setUsers(data);
   }
 
+  async function loadLaunchRaffle(authToken = token) {
+    if (!authToken) {
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/admin/raffles/launch`, {
+      headers: authHeaders(authToken),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      setMessage("Não foi possível carregar o sorteio.");
+      return;
+    }
+
+    setLaunchRaffle(await response.json() as AdminLaunchRaffle);
+  }
+
   async function loadAdminData(authToken = token) {
-    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken)]);
+    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken), loadLaunchRaffle(authToken)]);
   }
 
   useEffect(() => {
@@ -548,6 +588,7 @@ export default function AdminPage() {
         <nav>
           <a href="#produtos">Produtos</a>
           <a href="#categorias">Categorias</a>
+          <a href="#sorteios">Sorteios</a>
           <a href="#usuarios">Usuarios</a>
           <a href="#lista">Catalogo</a>
         </nav>
@@ -567,6 +608,7 @@ export default function AdminPage() {
             <strong>{recommendedProducts}<span>Recomendados</span></strong>
             <strong>{clientUsers.length}<span>Usuarios</span></strong>
             <strong>{partnerUsers.length}<span>Parceiros</span></strong>
+            <strong>{formatNumber(launchRaffle?.totalTickets)}<span>Tickets sorteio</span></strong>
           </div>
         </header>
 
@@ -689,6 +731,51 @@ export default function AdminPage() {
             </div>
           </section>
         </div>
+
+        <section id="sorteios" className="adminCard">
+          <div className="adminCardHeader">
+            <div>
+              <span>Hellpoints</span>
+              <h2>Sorteio de lançamento</h2>
+            </div>
+            <button type="button" onClick={() => loadLaunchRaffle()}>Atualizar</button>
+          </div>
+
+          <div className="adminRaffleSummary">
+            <div>
+              <span>Prêmio</span>
+              <strong>{launchRaffle?.prize ?? "Controle 8BitDo original"}</strong>
+            </div>
+            <div>
+              <span>Meta de cadastros</span>
+              <strong>{formatNumber(launchRaffle?.registeredCount)} / {formatNumber(launchRaffle?.goal ?? 125)}</strong>
+            </div>
+            <div>
+              <span>Tickets colocados</span>
+              <strong>{formatNumber(launchRaffle?.totalTickets)}</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong>{launchRaffle?.unlocked ? "Liberado" : "Aguardando meta"}</strong>
+            </div>
+          </div>
+          <div className="adminRaffleProgress" aria-label={`${launchRaffleProgress}% da meta`}>
+            <span style={{ width: `${launchRaffleProgress}%` }} />
+          </div>
+
+          <div className="adminRaffleTable">
+            {(launchRaffle?.participants ?? []).map((participant) => (
+              <article key={participant.userId}>
+                <div>
+                  <strong>{participant.name}</strong>
+                  <span>{participant.email}</span>
+                </div>
+                <strong>{formatNumber(participant.ticketCount)} tickets</strong>
+              </article>
+            ))}
+            {(launchRaffle?.participants.length ?? 0) === 0 && <p className="adminEmpty">Nenhum ticket colocado neste sorteio ainda.</p>}
+          </div>
+        </section>
 
         <section id="lista" className="adminCard">
           <div className="adminCardHeader">

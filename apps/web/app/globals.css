@@ -1734,6 +1734,7 @@ h2 {
 .hellpointsTicketCard span,
 .hellpointsTicketCard p,
 .hellpointsBuyRow,
+.launchRaffleCard,
 .hellpointsToast {
   font-family: var(--font-space), monospace;
   font-weight: 700;
@@ -1814,6 +1815,16 @@ h2 {
   padding: 18px;
 }
 
+.launchRaffleCard {
+  display: grid;
+  grid-column: span 2;
+  gap: 18px;
+  border: 2px solid var(--black);
+  background: var(--white);
+  color: var(--black);
+  padding: 18px;
+}
+
 .ticketIcon {
   display: grid;
   width: 96px;
@@ -1824,16 +1835,41 @@ h2 {
   color: var(--red);
 }
 
+.launchRaffleIcon {
+  display: grid;
+  width: 96px;
+  height: 96px;
+  place-items: center;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--black);
+}
+
 .hellpointsTicketCard h2 {
   margin-top: 10px;
   font-size: clamp(44px, 6vw, 86px);
   line-height: 0.86;
 }
 
+.launchRaffleCard h2 {
+  margin-top: 10px;
+  font-size: clamp(38px, 5vw, 72px);
+  line-height: 0.88;
+}
+
 .hellpointsTicketCard p {
   max-width: 520px;
   margin: 14px 0 0;
   color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.launchRaffleCard p {
+  max-width: 640px;
+  margin: 12px 0 0;
+  color: rgba(0, 0, 0, 0.68);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -1873,6 +1909,74 @@ h2 {
 .hellpointsBuyRow button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+  transform: none;
+}
+
+.launchRaffleProgress {
+  display: grid;
+  gap: 10px;
+}
+
+.launchRaffleProgress > div:first-child,
+.launchRaffleStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.launchRaffleProgress strong,
+.launchRaffleStats strong {
+  font-size: 24px;
+}
+
+.launchRaffleProgress span,
+.launchRaffleStats span {
+  color: rgba(0, 0, 0, 0.62);
+  font-size: 13px;
+}
+
+.launchRaffleBar {
+  height: 18px;
+  border: 2px solid var(--black);
+  background: #f2f4f7;
+  overflow: hidden;
+}
+
+.launchRaffleBar span {
+  display: block;
+  height: 100%;
+  background: var(--red);
+}
+
+.launchRaffleStats {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  border-top: 2px solid var(--black);
+  padding-top: 14px;
+}
+
+.launchRaffleCard button {
+  min-height: 52px;
+  border: 2px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--white);
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: transform 160ms linear;
+}
+
+.launchRaffleCard button:hover {
+  transform: translateX(4px) scale(1.02);
+}
+
+.launchRaffleCard button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
   transform: none;
 }
 
@@ -2965,7 +3069,8 @@ h2 {
 
 .categoryList,
 .adminProductTable,
-.adminUserTable {
+.adminUserTable,
+.adminRaffleTable {
   display: grid;
   gap: 10px;
 }
@@ -3025,6 +3130,57 @@ h2 {
   border: 1px solid #eef2f6;
   border-radius: 8px;
   padding: 12px;
+}
+
+.adminRaffleSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.adminRaffleSummary div,
+.adminRaffleTable article {
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.adminRaffleSummary span,
+.adminRaffleTable span {
+  display: block;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.adminRaffleSummary strong,
+.adminRaffleTable strong {
+  display: block;
+  margin-top: 4px;
+  color: #111827;
+  font-size: 18px;
+}
+
+.adminRaffleProgress {
+  height: 14px;
+  margin: 14px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef2f6;
+}
+
+.adminRaffleProgress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+}
+
+.adminRaffleTable article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
 }
 
 .adminUserTable strong {
@@ -3417,6 +3573,10 @@ h2 {
 
   .adminTopbar {
     display: grid;
+  }
+
+  .adminRaffleSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .adminProductTable article,
@@ -4026,8 +4186,20 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .adminRaffleSummary {
+    grid-template-columns: 1fr;
+  }
+
   .hellpointsTicketCard {
     grid-column: auto;
+  }
+
+  .launchRaffleCard {
+    grid-column: auto;
+  }
+
+  .launchRaffleStats {
+    grid-template-columns: auto 1fr;
   }
 
   .cartOverlay {

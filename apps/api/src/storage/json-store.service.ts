@@ -10,7 +10,8 @@ const emptyDatabase = (): Database => ({
   categories: [],
   products: [],
   partnerPurchases: [],
-  payments: []
+  payments: [],
+  raffleEntries: []
 });
 
 type SupabaseStateRow = {
@@ -181,6 +182,14 @@ export class JsonStoreService implements OnModuleInit {
       items: Array.isArray(payment.items) ? payment.items : [],
       updatedAt: typeof payment.updatedAt === "string" ? payment.updatedAt : new Date().toISOString()
     })) : [];
+    nextData.raffleEntries = Array.isArray(nextData.raffleEntries) ? nextData.raffleEntries.map((entry) => ({
+      ...entry,
+      raffleId: typeof entry.raffleId === "string" ? entry.raffleId : "",
+      userId: typeof entry.userId === "string" ? entry.userId : "",
+      ticketCount: Math.max(0, Math.floor(Number(entry.ticketCount ?? 0))),
+      createdAt: typeof entry.createdAt === "string" ? entry.createdAt : new Date().toISOString(),
+      updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : new Date().toISOString()
+    })).filter((entry) => entry.raffleId && entry.userId && entry.ticketCount > 0) : [];
 
     return nextData;
   }

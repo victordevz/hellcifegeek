@@ -97,12 +97,22 @@ export type PaymentRecord = {
   approvedAt?: string;
 };
 
+export type RaffleEntry = {
+  id: string;
+  raffleId: string;
+  userId: string;
+  ticketCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Database = {
   users: User[];
   categories: Category[];
   products: Product[];
   partnerPurchases: PartnerPurchase[];
   payments: PaymentRecord[];
+  raffleEntries: RaffleEntry[];
 };
 
 export type RequestUser = {
