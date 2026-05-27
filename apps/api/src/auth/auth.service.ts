@@ -473,7 +473,7 @@ export class AuthService implements OnModuleInit {
       name: process.env.ADMIN_NAME ?? "Hellcife Admin",
       email: this.normalizeEmail(process.env.ADMIN_EMAIL ?? "admin@hellcifegeek.com.br"),
       phone: undefined,
-      passwordHash: await this.hashPassword(process.env.ADMIN_PASSWORD ?? "admin123"),
+      passwordHash: await this.hashPassword(this.requireAdminPassword()),
       role: "admin",
       hellpoints: 0,
       raffleTickets: 0,
@@ -489,6 +489,16 @@ export class AuthService implements OnModuleInit {
       token: this.createToken(user),
       user: this.toPublicUser(user)
     };
+  }
+
+  private requireAdminPassword() {
+    const password = process.env.ADMIN_PASSWORD;
+
+    if (typeof password === "string" && password.length >= 16) {
+      return password;
+    }
+
+    return randomBytes(32).toString("base64url");
   }
 
   private createToken(user: User) {
