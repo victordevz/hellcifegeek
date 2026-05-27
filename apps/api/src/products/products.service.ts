@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { Product } from "../domain";
+import { Database, Product } from "../domain";
 import { JsonStoreService } from "../storage/json-store.service";
 import { booleanValue, optionalString, requiredNumber, requiredString, stringList, urlList } from "../utils";
 
@@ -17,9 +17,10 @@ export class ProductsService {
 
   async list(query: ProductQuery) {
     const data = await this.store.read();
+    const changed = this.expireStaleReservations(data);
+    const reservedByProduct = this.reservedQuantitiesByProduct(data);
     const search = query.q?.trim().toLowerCase();
-
-    return data.products.map((product) => this.withStock(product)).filter((product) => {
+    const products = data.products.map((product) => this.withStock(product, reservedByProduct.get(product.id) ?? 0)).filter((product) => {
       if (query.categoryId && product.categoryId !== query.categoryId) {
         return false;
       }
@@ -42,17 +43,29 @@ export class ProductsService {
 
       return true;
     });
+
+    if (changed) {
+      await this.store.write(data);
+    }
+
+    return products;
   }
 
   async get(id: string) {
     const data = await this.store.read();
+    const changed = this.expireStaleReservations(data);
+    const reservedByProduct = this.reservedQuantitiesByProduct(data);
     const product = data.products.find((item) => item.id === id);
 
     if (!product) {
       throw new NotFoundException("Produto nao encontrado");
     }
 
-    return this.withStock(product);
+    if (changed) {
+      await this.store.write(data);
+    }
+
+    return this.withStock(product, reservedByProduct.get(product.id) ?? 0);
   }
 
   async create(body: Record<string, unknown>) {
@@ -143,12 +156,47 @@ export class ProductsService {
     return { removed: true };
   }
 
-  private withStock(product: Product) {
+  private withStock(product: Product, reservedQuantity = 0) {
     return {
       ...product,
-      stock: Math.max(0, Math.floor(Number(product.stock ?? 0))),
+      stock: Math.max(0, Math.floor(Number(product.stock ?? 0)) - reservedQuantity),
       photoUrls: product.photoUrls?.length ? product.photoUrls : [product.photoUrl].filter(Boolean)
     };
+  }
+
+  private expireStaleReservations(data: Database) {
+    const now = Date.now();
+    let changed = false;
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.status === "active" && new Date(reservation.expiresAt).getTime() <= now) {
+        reservation.status = "expired";
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  private reservedQuantitiesByProduct(data: Database) {
+    const reservedByProduct = new Map<string, number>();
+    const now = Date.now();
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.status !== "active" || new Date(reservation.expiresAt).getTime() <= now) {
+        continue;
+      }
+
+      for (const item of reservation.items) {
+        if (!item.productId) {
+          continue;
+        }
+
+        reservedByProduct.set(item.productId, (reservedByProduct.get(item.productId) ?? 0) + item.quantity);
+      }
+    }
+
+    return reservedByProduct;
   }
 
   private normalizePhotoUrls(photoUrlsInput: unknown, fallbackPhotoUrl: unknown) {

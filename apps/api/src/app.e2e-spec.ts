@@ -356,6 +356,10 @@ describe("Hellcife Geek API", () => {
     paymentId = createPayment.body.id;
     expect(createPayment.body.status).toBe("pending");
     expect(createPayment.body.pixQrCode).toBe("000201PIXTEST");
+    expect(new Date(createPayment.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+
+    const reservedProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
+    expect(reservedProduct.body.stock).toBe(3);
 
     const reused = await request(httpServer)
       .post("/api/payments/pix")
@@ -383,6 +387,22 @@ describe("Hellcife Geek API", () => {
 
     const payments = await request(httpServer).get("/api/payments").set(auth(client)).expect(200);
     expect(payments.body.some((item: { id: string; status: string }) => item.id === paymentId && item.status === "approved")).toBe(true);
+
+    const soldProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
+    expect(soldProduct.body.stock).toBe(3);
+
+    const salesReport = await request(httpServer)
+      .get("/api/payments/admin/sales-report")
+      .set(auth(admin))
+      .expect(200);
+    expect(salesReport.body.summary.saleCount).toBe(1);
+    expect(salesReport.body.summary.totalCents).toBe(4491);
+    expect(salesReport.body.summary.activeReservationCount).toBe(0);
+    expect(salesReport.body.sales[0]).toMatchObject({
+      paymentId,
+      totalCents: 4491,
+      userEmail: "cliente@test.local"
+    });
 
     const partnerLogin = await request(httpServer)
       .post("/api/auth/login")

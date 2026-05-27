@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, OnModuleDestroy, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { EmailsService } from "../emails/emails.service";
-import { PaymentRecord, PaymentStatus, PartnerPurchaseItem, User } from "../domain";
+import { Database, PaymentRecord, PaymentStatus, PartnerPurchaseItem, User } from "../domain";
 import { JsonStoreService } from "../storage/json-store.service";
 
 type MercadoPagoPaymentResponse = {
@@ -24,6 +24,7 @@ const mercadoPagoApiUrl = "https://api.mercadopago.com/v1/payments";
 const partnerCommissionPercent = 10;
 const abandonedCartDelayMs = 3 * 60 * 60 * 1000;
 const cartReminderSweepMs = 5 * 60 * 1000;
+const inventoryReservationMs = 5 * 60 * 1000;
 
 @Injectable()
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {
@@ -69,21 +70,24 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const userPayments = data.payments.filter((payment) => payment.userId === user.id);
-    const cleanedDuplicates = this.expireDuplicatePendingPayments(userPayments);
-    const activePendingPayment = this.findActivePendingPaymentForItems(userPayments, items);
+    let shouldWrite = this.expireStaleReservations(data);
+    shouldWrite = this.expireDuplicatePendingPayments(data, userPayments) || shouldWrite;
+    const activePendingPayment = this.findActivePendingPaymentForItems(data, userPayments, items);
 
     if (activePendingPayment) {
-      if (cleanedDuplicates) {
+      if (shouldWrite) {
         await this.store.write(data);
       }
 
       return { ...this.toPublicPayment(activePendingPayment), reusedPending: true };
     }
 
+    this.ensureInventoryAvailable(data, items);
+
     const discountCents = Math.max(0, subtotalCents - totalCents);
     const nowDate = new Date();
     const now = nowDate.toISOString();
-    const expiresAt = new Date(nowDate.getTime() + 30 * 60 * 1000).toISOString();
+    const expiresAt = new Date(nowDate.getTime() + inventoryReservationMs).toISOString();
     const payment: PaymentRecord = {
       id: crypto.randomUUID(),
       provider: "mercado_pago",
@@ -108,9 +112,19 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     payment.pixQrCode = mpPayment.point_of_interaction?.transaction_data?.qr_code;
     payment.pixQrCodeBase64 = mpPayment.point_of_interaction?.transaction_data?.qr_code_base64;
     payment.pixTicketUrl = mpPayment.point_of_interaction?.transaction_data?.ticket_url;
-    payment.expiresAt = mpPayment.date_of_expiration ?? payment.expiresAt;
+    payment.expiresAt = this.earliestDate(payment.expiresAt, mpPayment.date_of_expiration);
     payment.updatedAt = new Date().toISOString();
     data.payments.push(payment);
+    data.inventoryReservations.push({
+      id: crypto.randomUUID(),
+      paymentId: payment.id,
+      userId: user.id,
+      userEmail: user.email,
+      items,
+      status: "active",
+      createdAt: now,
+      expiresAt: new Date(nowDate.getTime() + inventoryReservationMs).toISOString()
+    });
     await this.store.write(data);
     void this.emails.sendPurchaseCreatedEmail(payment);
 
@@ -189,6 +203,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       if (updatedPayment.status === "pending" && this.isPaymentExpired(updatedPayment)) {
         updatedPayment.status = "expired";
         updatedPayment.updatedAt = new Date().toISOString();
+        this.releaseReservationsForPayment(updatedData, updatedPayment.id, "expired");
         await this.store.write(updatedData);
       }
 
@@ -206,7 +221,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     let shouldWrite = false;
 
-    shouldWrite = this.expireDuplicatePendingPayments(userPayments);
+    shouldWrite = this.expireStaleReservations(data);
+    shouldWrite = this.expireDuplicatePendingPayments(data, userPayments) || shouldWrite;
 
     if (shouldWrite) {
       await this.store.write(data);
@@ -226,6 +242,61 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     await this.syncMercadoPagoPayment(providerPaymentId);
     return { received: true };
+  }
+
+  async getSalesReport(input: { startDate?: string; endDate?: string }) {
+    const data = await this.store.read();
+    const changed = this.expireStaleReservations(data);
+    const startTime = input.startDate ? new Date(input.startDate).getTime() : Number.NEGATIVE_INFINITY;
+    const endTime = input.endDate ? new Date(`${input.endDate}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
+    const sales = [...data.ecommerceSales]
+      .filter((sale) => {
+        const approvedTime = new Date(sale.approvedAt).getTime();
+        return approvedTime >= startTime && approvedTime <= endTime;
+      })
+      .sort((first, second) => new Date(second.approvedAt).getTime() - new Date(first.approvedAt).getTime());
+    const activeReservations = [...data.inventoryReservations]
+      .filter((reservation) => reservation.status === "active" && new Date(reservation.expiresAt).getTime() > Date.now())
+      .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
+    const itemCount = sales.reduce((total, sale) => total + sale.items.reduce((sum, item) => sum + item.quantity, 0), 0);
+    const productBreakdown = Array.from(sales.reduce((acc, sale) => {
+      for (const item of sale.items) {
+        const key = item.productId ?? item.name;
+        const current = acc.get(key) ?? {
+          productId: item.productId,
+          name: item.name,
+          quantity: 0,
+          totalCents: 0
+        };
+        current.quantity += item.quantity;
+        current.totalCents += item.priceCents * item.quantity;
+        acc.set(key, current);
+      }
+
+      return acc;
+    }, new Map<string, { productId?: string; name: string; quantity: number; totalCents: number }>()).values())
+      .sort((first, second) => second.totalCents - first.totalCents);
+
+    if (changed) {
+      await this.store.write(data);
+    }
+
+    return {
+      summary: {
+        saleCount: sales.length,
+        itemCount,
+        subtotalCents: sales.reduce((total, sale) => total + sale.subtotalCents, 0),
+        discountCents: sales.reduce((total, sale) => total + sale.discountCents, 0),
+        totalCents: sales.reduce((total, sale) => total + sale.totalCents, 0),
+        cashback: sales.reduce((total, sale) => total + sale.cashback, 0),
+        averageTicketCents: sales.length ? Math.round(sales.reduce((total, sale) => total + sale.totalCents, 0) / sales.length) : 0,
+        activeReservationCount: activeReservations.length,
+        reservedItemCount: activeReservations.reduce((total, reservation) => total + reservation.items.reduce((sum, item) => sum + item.quantity, 0), 0)
+      },
+      productBreakdown,
+      sales,
+      reservations: activeReservations
+    };
   }
 
   private async createMercadoPagoPix(accessToken: string, payment: PaymentRecord, user: User) {
@@ -278,6 +349,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     const providerPayment = (await response.json()) as MercadoPagoPaymentResponse;
     const data = await this.store.read();
+    this.expireStaleReservations(data);
     const payment = data.payments.find((item) => item.providerPaymentId === providerPaymentId);
 
     if (!payment) {
@@ -285,7 +357,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     payment.status = this.normalizeProviderStatus(providerPayment.status);
-    payment.expiresAt = providerPayment.date_of_expiration ?? payment.expiresAt;
+    payment.expiresAt = this.earliestDate(payment.expiresAt, providerPayment.date_of_expiration);
     if (payment.status === "pending" && this.isPaymentExpired(payment)) {
       payment.status = "expired";
     }
@@ -296,6 +368,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
 
     if (shouldSendApprovedEmail) {
       this.applyApprovedPayment(data, payment);
+    } else if (payment.status !== "pending" && payment.status !== "approved") {
+      this.releaseReservationsForPayment(data, payment.id, "released");
     }
 
     await this.store.write(data);
@@ -365,6 +439,9 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       payment.partnerPurchaseId = partnerPurchaseId;
     }
 
+    this.convertReservationsForPayment(data, payment.id);
+    this.subtractSoldStock(data, payment.items);
+    this.recordEcommerceSale(data, payment);
     payment.cashbackApplied = true;
   }
 
@@ -417,16 +494,28 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     return Boolean(payment.expiresAt && new Date(payment.expiresAt).getTime() <= Date.now());
   }
 
-  private findActivePendingPaymentForItems(payments: PaymentRecord[], items: PartnerPurchaseItem[]) {
+  private earliestDate(current: string | undefined, candidate: string | undefined) {
+    if (!current) {
+      return candidate;
+    }
+
+    if (!candidate) {
+      return current;
+    }
+
+    return new Date(candidate).getTime() < new Date(current).getTime() ? candidate : current;
+  }
+
+  private findActivePendingPaymentForItems(data: Database, payments: PaymentRecord[], items: PartnerPurchaseItem[]) {
     const requestedKeys = new Set(this.itemKeys(items));
 
     return payments
-      .filter((payment) => payment.status === "pending" && !this.isPaymentExpired(payment))
+      .filter((payment) => payment.status === "pending" && !this.isPaymentExpired(payment) && this.hasActiveReservation(data, payment.id))
       .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
       .find((payment) => this.itemKeys(payment.items).some((key) => requestedKeys.has(key)));
   }
 
-  private expireDuplicatePendingPayments(payments: PaymentRecord[]) {
+  private expireDuplicatePendingPayments(data: Database, payments: PaymentRecord[]) {
     const activeItemKeys = new Set<string>();
     let changed = false;
     const pendingPayments = [...payments]
@@ -440,6 +529,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       if (this.isPaymentExpired(payment) || isDuplicate) {
         payment.status = "expired";
         payment.updatedAt = new Date().toISOString();
+        this.releaseReservationsForPayment(data, payment.id, "expired");
         changed = true;
         continue;
       }
@@ -448,6 +538,130 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     return changed;
+  }
+
+  private ensureInventoryAvailable(data: Database, items: PartnerPurchaseItem[]) {
+    const reservedByProduct = this.reservedQuantitiesByProduct(data);
+
+    for (const item of items) {
+      if (!item.productId) {
+        continue;
+      }
+
+      const product = data.products.find((entry) => entry.id === item.productId);
+
+      if (!product || !product.active) {
+        throw new BadRequestException(`${item.name} não está disponível para venda`);
+      }
+
+      const available = Math.max(0, Math.floor(Number(product.stock ?? 0)) - (reservedByProduct.get(item.productId) ?? 0));
+
+      if (item.quantity > available) {
+        throw new BadRequestException(`${item.name} está indisponível no momento`);
+      }
+    }
+  }
+
+  private expireStaleReservations(data: Database) {
+    const now = Date.now();
+    let changed = false;
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.status === "active" && new Date(reservation.expiresAt).getTime() <= now) {
+        reservation.status = "expired";
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  private hasActiveReservation(data: Database, paymentId: string) {
+    const now = Date.now();
+    return (data.inventoryReservations ?? []).some((reservation) => (
+      reservation.paymentId === paymentId
+      && reservation.status === "active"
+      && new Date(reservation.expiresAt).getTime() > now
+    ));
+  }
+
+  private reservedQuantitiesByProduct(data: Database) {
+    const reservedByProduct = new Map<string, number>();
+    const now = Date.now();
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.status !== "active" || new Date(reservation.expiresAt).getTime() <= now) {
+        continue;
+      }
+
+      for (const item of reservation.items) {
+        if (!item.productId) {
+          continue;
+        }
+
+        reservedByProduct.set(item.productId, (reservedByProduct.get(item.productId) ?? 0) + item.quantity);
+      }
+    }
+
+    return reservedByProduct;
+  }
+
+  private releaseReservationsForPayment(data: Database, paymentId: string, status: "expired" | "released") {
+    const now = new Date().toISOString();
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.paymentId === paymentId && reservation.status === "active") {
+        reservation.status = status;
+        reservation.releasedAt = now;
+      }
+    }
+  }
+
+  private convertReservationsForPayment(data: Database, paymentId: string) {
+    const now = new Date().toISOString();
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.paymentId === paymentId && reservation.status !== "converted") {
+        reservation.status = "converted";
+        reservation.convertedAt = now;
+      }
+    }
+  }
+
+  private subtractSoldStock(data: Database, items: PartnerPurchaseItem[]) {
+    for (const item of items) {
+      if (!item.productId) {
+        continue;
+      }
+
+      const product = data.products.find((entry) => entry.id === item.productId);
+
+      if (product) {
+        product.stock = Math.max(0, Math.floor(Number(product.stock ?? 0)) - item.quantity);
+        product.updatedAt = new Date().toISOString();
+      }
+    }
+  }
+
+  private recordEcommerceSale(data: Database, payment: PaymentRecord) {
+    if (data.ecommerceSales.some((sale) => sale.paymentId === payment.id)) {
+      return;
+    }
+
+    data.ecommerceSales.push({
+      id: crypto.randomUUID(),
+      paymentId: payment.id,
+      userId: payment.userId,
+      userEmail: payment.userEmail,
+      couponCode: payment.couponCode,
+      subtotalCents: payment.subtotalCents,
+      discountCents: payment.discountCents,
+      totalCents: payment.totalCents,
+      cashback: payment.cashback,
+      items: payment.items,
+      createdAt: payment.createdAt,
+      approvedAt: payment.approvedAt ?? new Date().toISOString()
+    });
   }
 
   private itemKeys(items: PartnerPurchaseItem[]) {

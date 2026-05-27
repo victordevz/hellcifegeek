@@ -140,6 +140,8 @@ export const seedDatabase = {
   ],
   "partnerPurchases": [],
   "payments": [],
+  "inventoryReservations": [],
+  "ecommerceSales": [],
   "raffleEntries": [],
   "cartReminders": []
 } satisfies Database;

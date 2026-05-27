@@ -97,6 +97,36 @@ export type PaymentRecord = {
   approvedAt?: string;
 };
 
+export type InventoryReservationStatus = "active" | "expired" | "converted" | "released";
+
+export type InventoryReservation = {
+  id: string;
+  paymentId: string;
+  userId: string;
+  userEmail: string;
+  items: PartnerPurchaseItem[];
+  status: InventoryReservationStatus;
+  createdAt: string;
+  expiresAt: string;
+  convertedAt?: string;
+  releasedAt?: string;
+};
+
+export type EcommerceSale = {
+  id: string;
+  paymentId: string;
+  userId: string;
+  userEmail: string;
+  couponCode?: string;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  cashback: number;
+  items: PartnerPurchaseItem[];
+  createdAt: string;
+  approvedAt: string;
+};
+
 export type RaffleEntry = {
   id: string;
   raffleId: string;
@@ -124,6 +154,8 @@ export type Database = {
   products: Product[];
   partnerPurchases: PartnerPurchase[];
   payments: PaymentRecord[];
+  inventoryReservations: InventoryReservation[];
+  ecommerceSales: EcommerceSale[];
   raffleEntries: RaffleEntry[];
   cartReminders: CartReminder[];
 };

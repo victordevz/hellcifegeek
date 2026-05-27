@@ -3252,7 +3252,8 @@ h2 {
 .categoryList,
 .adminProductTable,
 .adminUserTable,
-.adminRaffleTable {
+.adminRaffleTable,
+.adminSalesTable {
   display: grid;
   gap: 10px;
 }
@@ -3320,7 +3321,16 @@ h2 {
   gap: 10px;
 }
 
+.adminSalesSummary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
 .adminRaffleSummary div,
+.adminSalesSummary div,
+.adminSalesTable article,
 .adminRaffleTable article {
   border: 1px solid #eef2f6;
   border-radius: 8px;
@@ -3328,6 +3338,9 @@ h2 {
 }
 
 .adminRaffleSummary span,
+.adminSalesSummary span,
+.adminSalesTable span,
+.adminSalesTable small,
 .adminRaffleTable span {
   display: block;
   color: #667085;
@@ -3336,11 +3349,26 @@ h2 {
 }
 
 .adminRaffleSummary strong,
+.adminSalesSummary strong,
+.adminSalesTable strong,
 .adminRaffleTable strong {
   display: block;
   margin-top: 4px;
   color: #111827;
   font-size: 18px;
+}
+
+.adminSalesColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.adminSalesColumns h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 16px;
 }
 
 .adminRaffleProgress {
@@ -3361,6 +3389,12 @@ h2 {
 .adminRaffleTable article {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.adminSalesTable article {
+  display: flex;
   justify-content: space-between;
   gap: 14px;
 }

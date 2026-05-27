@@ -66,6 +66,51 @@ type AdminLaunchRaffle = {
   participants: LaunchRaffleParticipant[];
 };
 
+type SalesReportItem = {
+  productId?: string;
+  name: string;
+  quantity: number;
+  priceCents: number;
+};
+
+type SalesReport = {
+  summary: {
+    saleCount: number;
+    itemCount: number;
+    subtotalCents: number;
+    discountCents: number;
+    totalCents: number;
+    cashback: number;
+    averageTicketCents: number;
+    activeReservationCount: number;
+    reservedItemCount: number;
+  };
+  productBreakdown: Array<{
+    productId?: string;
+    name: string;
+    quantity: number;
+    totalCents: number;
+  }>;
+  sales: Array<{
+    id: string;
+    paymentId: string;
+    userEmail: string;
+    couponCode?: string;
+    totalCents: number;
+    discountCents: number;
+    items: SalesReportItem[];
+    approvedAt: string;
+  }>;
+  reservations: Array<{
+    id: string;
+    paymentId: string;
+    userEmail: string;
+    items: SalesReportItem[];
+    expiresAt: string;
+    createdAt: string;
+  }>;
+};
+
 type ProductForm = {
   id?: string;
   name: string;
@@ -114,6 +159,13 @@ function formatNumber(value: unknown) {
   return new Intl.NumberFormat("pt-BR").format(Math.max(0, Math.floor(Number(value ?? 0))));
 }
 
+function formatCents(value: unknown) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(Math.max(0, Math.floor(Number(value ?? 0))) / 100);
+}
+
 export default function AdminPage() {
   const [email, setEmail] = useState("admin@hellcifegeek.com.br");
   const [password, setPassword] = useState("");
@@ -122,6 +174,7 @@ export default function AdminPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [launchRaffle, setLaunchRaffle] = useState<AdminLaunchRaffle | null>(null);
+  const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -197,8 +250,26 @@ export default function AdminPage() {
     setLaunchRaffle(await response.json() as AdminLaunchRaffle);
   }
 
+  async function loadSalesReport(authToken = token) {
+    if (!authToken) {
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/payments/admin/sales-report`, {
+      headers: authHeaders(authToken),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      setMessage("Não foi possível carregar o relatório de vendas.");
+      return;
+    }
+
+    setSalesReport(await response.json() as SalesReport);
+  }
+
   async function loadAdminData(authToken = token) {
-    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken), loadLaunchRaffle(authToken)]);
+    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken), loadLaunchRaffle(authToken), loadSalesReport(authToken)]);
   }
 
   useEffect(() => {
@@ -250,6 +321,7 @@ export default function AdminPage() {
     setProducts([]);
     setCategories([]);
     setUsers([]);
+    setSalesReport(null);
     setMessage("Sessao encerrada.");
   }
 
@@ -589,6 +661,7 @@ export default function AdminPage() {
           <a href="#produtos">Produtos</a>
           <a href="#categorias">Categorias</a>
           <a href="#sorteios">Sorteios</a>
+          <a href="#vendas">Vendas</a>
           <a href="#usuarios">Usuarios</a>
           <a href="#lista">Catalogo</a>
         </nav>
@@ -609,6 +682,7 @@ export default function AdminPage() {
             <strong>{clientUsers.length}<span>Usuarios</span></strong>
             <strong>{partnerUsers.length}<span>Parceiros</span></strong>
             <strong>{formatNumber(launchRaffle?.totalTickets)}<span>Tickets sorteio</span></strong>
+            <strong>{formatCents(salesReport?.summary.totalCents)}<span>Vendido</span></strong>
           </div>
         </header>
 
@@ -774,6 +848,89 @@ export default function AdminPage() {
               </article>
             ))}
             {(launchRaffle?.participants.length ?? 0) === 0 && <p className="adminEmpty">Nenhum ticket colocado neste sorteio ainda.</p>}
+          </div>
+        </section>
+
+        <section id="vendas" className="adminCard">
+          <div className="adminCardHeader">
+            <div>
+              <span>Ecommerce</span>
+              <h2>Relatório de vendas</h2>
+            </div>
+            <button type="button" onClick={() => loadSalesReport()}>Atualizar</button>
+          </div>
+
+          <div className="adminSalesSummary">
+            <div>
+              <span>Vendas concluídas</span>
+              <strong>{formatNumber(salesReport?.summary.saleCount)}</strong>
+            </div>
+            <div>
+              <span>Total vendido</span>
+              <strong>{formatCents(salesReport?.summary.totalCents)}</strong>
+            </div>
+            <div>
+              <span>Itens vendidos</span>
+              <strong>{formatNumber(salesReport?.summary.itemCount)}</strong>
+            </div>
+            <div>
+              <span>Ticket médio</span>
+              <strong>{formatCents(salesReport?.summary.averageTicketCents)}</strong>
+            </div>
+            <div>
+              <span>Reservas ativas</span>
+              <strong>{formatNumber(salesReport?.summary.activeReservationCount)}</strong>
+            </div>
+          </div>
+
+          <div className="adminSalesColumns">
+            <div>
+              <h3>Produtos vendidos</h3>
+              <div className="adminSalesTable">
+                {(salesReport?.productBreakdown ?? []).map((item) => (
+                  <article key={item.productId ?? item.name}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span>{formatNumber(item.quantity)} unidade(s)</span>
+                    </div>
+                    <strong>{formatCents(item.totalCents)}</strong>
+                  </article>
+                ))}
+                {(salesReport?.productBreakdown.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma venda concluída ainda.</p>}
+              </div>
+            </div>
+            <div>
+              <h3>Reservas em andamento</h3>
+              <div className="adminSalesTable">
+                {(salesReport?.reservations ?? []).map((reservation) => (
+                  <article key={reservation.id}>
+                    <div>
+                      <strong>{reservation.userEmail}</strong>
+                      <span>Expira em {new Date(reservation.expiresAt).toLocaleString("pt-BR")}</span>
+                      <small>{reservation.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}</small>
+                    </div>
+                  </article>
+                ))}
+                {(salesReport?.reservations.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma reserva ativa agora.</p>}
+              </div>
+            </div>
+          </div>
+
+          <div className="adminSalesTable">
+            {(salesReport?.sales ?? []).map((sale) => (
+              <article key={sale.id}>
+                <div>
+                  <strong>{sale.userEmail}</strong>
+                  <span>{new Date(sale.approvedAt).toLocaleString("pt-BR")} · Pedido {sale.paymentId.slice(0, 8)}</span>
+                  <small>{sale.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}</small>
+                </div>
+                <div>
+                  <strong>{formatCents(sale.totalCents)}</strong>
+                  {sale.couponCode && <span>Cupom {sale.couponCode} · desconto {formatCents(sale.discountCents)}</span>}
+                </div>
+              </article>
+            ))}
+            {(salesReport?.sales.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma venda registrada.</p>}
           </div>
         </section>
 

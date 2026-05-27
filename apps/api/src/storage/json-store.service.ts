@@ -11,6 +11,8 @@ const emptyDatabase = (): Database => ({
   products: [],
   partnerPurchases: [],
   payments: [],
+  inventoryReservations: [],
+  ecommerceSales: [],
   raffleEntries: [],
   cartReminders: []
 });
@@ -183,6 +185,33 @@ export class JsonStoreService implements OnModuleInit {
       items: Array.isArray(payment.items) ? payment.items : [],
       updatedAt: typeof payment.updatedAt === "string" ? payment.updatedAt : new Date().toISOString()
     })) : [];
+    nextData.inventoryReservations = Array.isArray(nextData.inventoryReservations) ? nextData.inventoryReservations.map((reservation) => ({
+      ...reservation,
+      paymentId: typeof reservation.paymentId === "string" ? reservation.paymentId : "",
+      userId: typeof reservation.userId === "string" ? reservation.userId : "",
+      userEmail: typeof reservation.userEmail === "string" ? reservation.userEmail : "",
+      items: Array.isArray(reservation.items) ? reservation.items : [],
+      status: this.normalizeReservationStatus(reservation.status),
+      createdAt: typeof reservation.createdAt === "string" ? reservation.createdAt : new Date().toISOString(),
+      expiresAt: typeof reservation.expiresAt === "string" ? reservation.expiresAt : new Date().toISOString(),
+      convertedAt: typeof reservation.convertedAt === "string" ? reservation.convertedAt : undefined,
+      releasedAt: typeof reservation.releasedAt === "string" ? reservation.releasedAt : undefined
+    })).filter((reservation) => reservation.paymentId && reservation.userId) : [];
+    nextData.ecommerceSales = Array.isArray(nextData.ecommerceSales) ? nextData.ecommerceSales.map((sale) => ({
+      ...sale,
+      id: typeof sale.id === "string" ? sale.id : crypto.randomUUID(),
+      paymentId: typeof sale.paymentId === "string" ? sale.paymentId : "",
+      userId: typeof sale.userId === "string" ? sale.userId : "",
+      userEmail: typeof sale.userEmail === "string" ? sale.userEmail : "",
+      couponCode: typeof sale.couponCode === "string" ? sale.couponCode : undefined,
+      subtotalCents: Math.max(0, Math.floor(Number(sale.subtotalCents ?? sale.totalCents ?? 0))),
+      discountCents: Math.max(0, Math.floor(Number(sale.discountCents ?? 0))),
+      totalCents: Math.max(0, Math.floor(Number(sale.totalCents ?? 0))),
+      cashback: Math.max(0, Math.floor(Number(sale.cashback ?? 0))),
+      items: Array.isArray(sale.items) ? sale.items : [],
+      createdAt: typeof sale.createdAt === "string" ? sale.createdAt : new Date().toISOString(),
+      approvedAt: typeof sale.approvedAt === "string" ? sale.approvedAt : new Date().toISOString()
+    })).filter((sale) => sale.paymentId && sale.userId) : [];
     nextData.raffleEntries = Array.isArray(nextData.raffleEntries) ? nextData.raffleEntries.map((entry) => ({
       ...entry,
       raffleId: typeof entry.raffleId === "string" ? entry.raffleId : "",
@@ -215,5 +244,14 @@ export class JsonStoreService implements OnModuleInit {
       || status === "refunded"
       ? status
       : "pending";
+  }
+
+  private normalizeReservationStatus(status: unknown): Database["inventoryReservations"][number]["status"] {
+    return status === "active"
+      || status === "expired"
+      || status === "converted"
+      || status === "released"
+      ? status
+      : "active";
   }
 }

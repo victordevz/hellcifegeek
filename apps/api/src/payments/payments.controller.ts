@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { RequestUser } from "../domain";
+import { AdminGuard } from "../auth/admin.guard";
 import { AuthGuard } from "../auth/auth.guard";
 import { PaymentsService } from "./payments.service";
 
@@ -23,6 +24,12 @@ export class PaymentsController {
   @UseGuards(AuthGuard)
   listPayments(@Req() request: { user: RequestUser }) {
     return this.payments.listUserPayments(request.user.id);
+  }
+
+  @Get("admin/sales-report")
+  @UseGuards(AuthGuard, AdminGuard)
+  getSalesReport(@Query("startDate") startDate?: string, @Query("endDate") endDate?: string) {
+    return this.payments.getSalesReport({ startDate, endDate });
   }
 
   @Get(":id")
