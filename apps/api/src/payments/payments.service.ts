@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, OnModuleDestroy, OnModuleInit, UnauthorizedException } from "@nestjs/common";
+import { EmailsService } from "../emails/emails.service";
 import { PaymentRecord, PaymentStatus, PartnerPurchaseItem, User } from "../domain";
 import { JsonStoreService } from "../storage/json-store.service";
 
@@ -21,10 +22,30 @@ type MercadoPagoPaymentResponse = {
 
 const mercadoPagoApiUrl = "https://api.mercadopago.com/v1/payments";
 const partnerCommissionPercent = 5;
+const abandonedCartDelayMs = 3 * 60 * 60 * 1000;
+const cartReminderSweepMs = 5 * 60 * 1000;
 
 @Injectable()
-export class PaymentsService {
-  constructor(@Inject(JsonStoreService) private readonly store: JsonStoreService) {}
+export class PaymentsService implements OnModuleInit, OnModuleDestroy {
+  private cartReminderInterval: NodeJS.Timeout | null = null;
+
+  constructor(
+    @Inject(JsonStoreService) private readonly store: JsonStoreService,
+    @Inject(EmailsService) private readonly emails: EmailsService
+  ) {}
+
+  onModuleInit() {
+    this.cartReminderInterval = setInterval(() => {
+      void this.sendDueCartReminders();
+    }, cartReminderSweepMs);
+    void this.sendDueCartReminders();
+  }
+
+  onModuleDestroy() {
+    if (this.cartReminderInterval) {
+      clearInterval(this.cartReminderInterval);
+    }
+  }
 
   async createPixPayment(userId: string, input: Record<string, unknown>) {
     const accessToken = this.requireAccessToken();
@@ -91,8 +112,65 @@ export class PaymentsService {
     payment.updatedAt = new Date().toISOString();
     data.payments.push(payment);
     await this.store.write(data);
+    void this.emails.sendPurchaseCreatedEmail(payment);
 
     return this.toPublicPayment(payment);
+  }
+
+  async updateCartActivity(userId: string, input: Record<string, unknown>) {
+    const data = await this.store.read();
+    const user = data.users.find((item) => item.id === userId);
+
+    if (!user) {
+      throw new UnauthorizedException("Usuário não encontrado");
+    }
+
+    if (user.banned) {
+      throw new UnauthorizedException("Conta banida");
+    }
+
+    const items = this.normalizeItems(input.items);
+    const now = new Date();
+    const existing = data.cartReminders.find((reminder) => reminder.userId === user.id);
+
+    if (items.length === 0) {
+      if (existing) {
+        existing.items = [];
+        existing.subtotalCents = 0;
+        existing.updatedAt = now.toISOString();
+        existing.clearedAt = now.toISOString();
+      }
+
+      await this.store.write(data);
+      return { tracked: false };
+    }
+
+    const subtotalCents = items.reduce((total, item) => total + item.priceCents * item.quantity, 0);
+    const reminder = existing ?? {
+      userId: user.id,
+      userEmail: user.email,
+      userName: user.name,
+      items: [],
+      subtotalCents: 0,
+      updatedAt: now.toISOString(),
+      remindAfter: now.toISOString()
+    };
+
+    reminder.userEmail = user.email;
+    reminder.userName = user.name;
+    reminder.items = items;
+    reminder.subtotalCents = subtotalCents;
+    reminder.updatedAt = now.toISOString();
+    reminder.remindAfter = new Date(now.getTime() + abandonedCartDelayMs).toISOString();
+    reminder.reminderSentAt = undefined;
+    reminder.clearedAt = undefined;
+
+    if (!existing) {
+      data.cartReminders.push(reminder);
+    }
+
+    await this.store.write(data);
+    return { tracked: true, remindAfter: reminder.remindAfter };
   }
 
   async getPayment(userId: string, paymentId: string) {
@@ -214,8 +292,41 @@ export class PaymentsService {
     payment.updatedAt = new Date().toISOString();
     payment.approvedAt = providerPayment.date_approved ?? payment.approvedAt;
 
-    if (payment.status === "approved" && !payment.cashbackApplied) {
+    const shouldSendApprovedEmail = payment.status === "approved" && !payment.cashbackApplied;
+
+    if (shouldSendApprovedEmail) {
       this.applyApprovedPayment(data, payment);
+    }
+
+    await this.store.write(data);
+
+    if (shouldSendApprovedEmail) {
+      void this.emails.sendPaymentApprovedAdminEmail(payment);
+    }
+  }
+
+  private async sendDueCartReminders() {
+    const data = await this.store.read();
+    const now = Date.now();
+    const dueReminders = data.cartReminders.filter((reminder) => (
+      !reminder.reminderSentAt
+      && !reminder.clearedAt
+      && reminder.items.length > 0
+      && new Date(reminder.remindAfter).getTime() <= now
+    ));
+
+    if (dueReminders.length === 0) {
+      return;
+    }
+
+    for (const reminder of dueReminders) {
+      await this.emails.sendAbandonedCartReminder({
+        userEmail: reminder.userEmail,
+        userName: reminder.userName,
+        subtotalCents: reminder.subtotalCents,
+        items: reminder.items
+      });
+      reminder.reminderSentAt = new Date().toISOString();
     }
 
     await this.store.write(data);

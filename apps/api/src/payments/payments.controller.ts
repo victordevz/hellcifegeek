@@ -13,6 +13,12 @@ export class PaymentsController {
     return this.payments.createPixPayment(request.user.id, body as Record<string, unknown>);
   }
 
+  @Post("cart-activity")
+  @UseGuards(AuthGuard)
+  updateCartActivity(@Req() request: { user: RequestUser }, @Body() body: unknown) {
+    return this.payments.updateCartActivity(request.user.id, body as Record<string, unknown>);
+  }
+
   @Get()
   @UseGuards(AuthGuard)
   listPayments(@Req() request: { user: RequestUser }) {

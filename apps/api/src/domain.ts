@@ -106,6 +106,18 @@ export type RaffleEntry = {
   updatedAt: string;
 };
 
+export type CartReminder = {
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  items: PartnerPurchaseItem[];
+  subtotalCents: number;
+  updatedAt: string;
+  remindAfter: string;
+  reminderSentAt?: string;
+  clearedAt?: string;
+};
+
 export type Database = {
   users: User[];
   categories: Category[];
@@ -113,6 +125,7 @@ export type Database = {
   partnerPurchases: PartnerPurchase[];
   payments: PaymentRecord[];
   raffleEntries: RaffleEntry[];
+  cartReminders: CartReminder[];
 };
 
 export type RequestUser = {

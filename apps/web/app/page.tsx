@@ -300,6 +300,12 @@ export default function Page() {
     .filter((line): line is { item: CartItem; product: ApiProduct } => Boolean(line));
   const cartCount = cartLines.reduce((total, line) => total + line.item.quantity, 0);
   const cartTotalCents = cartLines.reduce((total, line) => total + line.product.priceCents * line.item.quantity, 0);
+  const cartActivityItems = useMemo(() => cartLines.map((line) => ({
+    productId: line.product.id,
+    name: line.product.name,
+    quantity: line.item.quantity,
+    priceCents: line.product.priceCents
+  })), [cartItems, productsById]);
   const hasPhoneCoupon = Boolean(currentUser?.phone);
   const couponDiscountCents = appliedCouponCode ? Math.round(cartTotalCents * appliedCouponDiscountRate) : 0;
   const cartFinalTotalCents = Math.max(0, cartTotalCents - couponDiscountCents);
@@ -429,6 +435,33 @@ export default function Page() {
       localStorage.setItem(cartStorageKey, JSON.stringify(cartItems));
     }
   }, [cartItems, cartLoaded]);
+
+  useEffect(() => {
+    if (!cartLoaded || isProductsLoading || !currentUser) {
+      return;
+    }
+
+    const token = localStorage.getItem("hellcifegeek.token");
+
+    if (!token) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetch(`${apiUrl}/payments/cart-activity`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          items: cartActivityItems
+        })
+      }).catch(() => undefined);
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [cartActivityItems, cartLoaded, currentUser?.id, isProductsLoading]);
 
   useEffect(() => {
     if (!currentUser) {

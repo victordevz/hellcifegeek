@@ -140,5 +140,6 @@ export const seedDatabase = {
   ],
   "partnerPurchases": [],
   "payments": [],
-  "raffleEntries": []
+  "raffleEntries": [],
+  "cartReminders": []
 } satisfies Database;

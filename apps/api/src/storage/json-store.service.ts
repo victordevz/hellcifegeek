@@ -11,7 +11,8 @@ const emptyDatabase = (): Database => ({
   products: [],
   partnerPurchases: [],
   payments: [],
-  raffleEntries: []
+  raffleEntries: [],
+  cartReminders: []
 });
 
 type SupabaseStateRow = {
@@ -190,6 +191,18 @@ export class JsonStoreService implements OnModuleInit {
       createdAt: typeof entry.createdAt === "string" ? entry.createdAt : new Date().toISOString(),
       updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : new Date().toISOString()
     })).filter((entry) => entry.raffleId && entry.userId && entry.ticketCount > 0) : [];
+    nextData.cartReminders = Array.isArray(nextData.cartReminders) ? nextData.cartReminders.map((reminder) => ({
+      ...reminder,
+      userId: typeof reminder.userId === "string" ? reminder.userId : "",
+      userEmail: typeof reminder.userEmail === "string" ? reminder.userEmail : "",
+      userName: typeof reminder.userName === "string" ? reminder.userName : undefined,
+      items: Array.isArray(reminder.items) ? reminder.items : [],
+      subtotalCents: Math.max(0, Math.floor(Number(reminder.subtotalCents ?? 0))),
+      updatedAt: typeof reminder.updatedAt === "string" ? reminder.updatedAt : new Date().toISOString(),
+      remindAfter: typeof reminder.remindAfter === "string" ? reminder.remindAfter : new Date().toISOString(),
+      reminderSentAt: typeof reminder.reminderSentAt === "string" ? reminder.reminderSentAt : undefined,
+      clearedAt: typeof reminder.clearedAt === "string" ? reminder.clearedAt : undefined
+    })).filter((reminder) => reminder.userId && reminder.userEmail) : [];
 
     return nextData;
   }
