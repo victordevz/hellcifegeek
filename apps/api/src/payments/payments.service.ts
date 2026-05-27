@@ -25,7 +25,7 @@ const partnerCommissionPercent = 10;
 const abandonedCartDelayMs = 3 * 60 * 60 * 1000;
 const cartReminderSweepMs = 5 * 60 * 1000;
 const cartReservationMs = 2 * 60 * 1000;
-const pixPaymentExpirationMs = 30 * 60 * 1000;
+const pixPaymentExpirationMs = 5 * 60 * 1000;
 
 @Injectable()
 export class PaymentsService implements OnModuleInit, OnModuleDestroy {

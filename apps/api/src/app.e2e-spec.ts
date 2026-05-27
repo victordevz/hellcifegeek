@@ -363,6 +363,7 @@ describe("Hellcife Geek API", () => {
     expect(createPayment.body.status).toBe("pending");
     expect(createPayment.body.pixQrCode).toBe("000201PIXTEST");
     expect(new Date(createPayment.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+    expect(new Date(createPayment.body.expiresAt).getTime()).toBeLessThanOrEqual(Date.now() + 5 * 60 * 1000 + 2000);
 
     const reservedProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
     expect(reservedProduct.body.stock).toBe(3);
