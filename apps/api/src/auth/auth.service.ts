@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { PublicUser, RequestUser, User, UserRole } from "../domain";
+import { PartnerPurchaseItem, PublicUser, RequestUser, User, UserRole } from "../domain";
 import { JsonStoreService } from "../storage/json-store.service";
 
 const scrypt = promisify(scryptCallback);
@@ -11,6 +11,8 @@ type RegisterInput = {
   email?: string;
   password?: string;
   phone?: string;
+  termsAccepted?: boolean;
+  marketingEmailsOptIn?: boolean;
 };
 
 type LoginInput = {
@@ -20,6 +22,7 @@ type LoginInput = {
 
 const signupHellpointsBonus = 50;
 const raffleTicketCost = 50;
+const partnerDiscountPercent = 5;
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -51,7 +54,13 @@ export class AuthService implements OnModuleInit {
     const email = this.normalizeEmail(input.email);
     const password = this.requirePassword(input.password);
     const name = this.requireText(input.name, "name");
+
+    if (input.termsAccepted !== true) {
+      throw new BadRequestException("Aceite dos termos obrigatório");
+    }
+
     const data = await this.store.read();
+    const acceptedAt = new Date().toISOString();
 
     if (data.users.some((user) => user.email === email)) {
       throw new ConflictException("Email ja cadastrado");
@@ -67,6 +76,9 @@ export class AuthService implements OnModuleInit {
       hellpoints: signupHellpointsBonus,
       raffleTickets: 0,
       banned: false,
+      termsAcceptedAt: acceptedAt,
+      privacyAcceptedAt: acceptedAt,
+      marketingEmailsOptIn: Boolean(input.marketingEmailsOptIn),
       createdAt: new Date().toISOString()
     };
 
@@ -286,11 +298,63 @@ export class AuthService implements OnModuleInit {
     const cashback = roundedReais * 10;
     user.hellpoints = this.normalizePoints(user.hellpoints) + cashback;
     user.raffleTickets = this.normalizePoints(user.raffleTickets);
+    const couponCode = this.normalizeOptionalCoupon(input.couponCode);
+    const partner = couponCode ? data.users.find((item) => (
+      item.role === "partner"
+      && !item.banned
+      && item.partnerCouponCode?.toUpperCase() === couponCode
+    )) : undefined;
+
+    if (partner) {
+      const subtotalCents = this.normalizeCents(input.subtotalCents) || Math.round(totalCents / (1 - partnerDiscountPercent / 100));
+      const discountCents = Math.max(0, subtotalCents - Math.floor(totalCents));
+      data.partnerPurchases.push({
+        id: crypto.randomUUID(),
+        partnerId: partner.id,
+        customerId: user.id,
+        customerName: user.name,
+        customerEmail: user.email,
+        couponCode,
+        subtotalCents,
+        discountCents,
+        totalCents: Math.floor(totalCents),
+        items: this.normalizePurchaseItems(input.items),
+        status: "whatsapp_opened",
+        createdAt: new Date().toISOString()
+      });
+    }
+
     await this.store.write(data);
 
     return {
       user: this.toPublicUser(user),
-      cashback
+      cashback,
+      partnerPurchaseRegistered: Boolean(partner)
+    };
+  }
+
+  async validateCoupon(code: string) {
+    const couponCode = this.normalizeOptionalCoupon(code);
+
+    if (!couponCode) {
+      throw new BadRequestException("Cupom invalido");
+    }
+
+    const data = await this.store.read();
+    const partner = data.users.find((user) => (
+      user.role === "partner"
+      && !user.banned
+      && user.partnerCouponCode?.toUpperCase() === couponCode
+    ));
+
+    if (!partner) {
+      throw new BadRequestException("Cupom invalido");
+    }
+
+    return {
+      code: partner.partnerCouponCode,
+      discountPercent: partner.partnerDiscountPercent || partnerDiscountPercent,
+      partnerName: partner.name
     };
   }
 
@@ -343,6 +407,54 @@ export class AuthService implements OnModuleInit {
     return Math.max(0, Math.floor(Number(value ?? 0)));
   }
 
+  private normalizeCents(value: unknown) {
+    const cents = Number(value);
+    return Number.isFinite(cents) && cents > 0 ? Math.floor(cents) : 0;
+  }
+
+  private normalizeOptionalCoupon(value: unknown) {
+    return typeof value === "string" ? value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
+  }
+
+  private normalizePurchaseItems(value: unknown): PartnerPurchaseItem[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.slice(0, 30).map((item) => {
+      const entry = item as Record<string, unknown>;
+      const name = typeof entry.name === "string" && entry.name.trim() ? entry.name.trim() : "Produto";
+
+      return {
+        productId: typeof entry.productId === "string" ? entry.productId : undefined,
+        name,
+        quantity: Math.max(1, Math.floor(Number(entry.quantity ?? 1))),
+        priceCents: Math.max(0, Math.floor(Number(entry.priceCents ?? 0)))
+      };
+    });
+  }
+
+  private generatePartnerCoupon(user: User, users: User[]) {
+    const base = (user.name || user.email.split("@")[0] || "PARCEIRO")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .toUpperCase()
+      .slice(0, 10) || "PARCEIRO";
+    const existingCodes = new Set(users.map((item) => item.partnerCouponCode?.toUpperCase()).filter(Boolean));
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const suffix = randomBytes(2).toString("hex").toUpperCase();
+      const coupon = `${base}${suffix}`;
+
+      if (!existingCodes.has(coupon)) {
+        return coupon;
+      }
+    }
+
+    return `PARCEIRO${randomBytes(4).toString("hex").toUpperCase()}`;
+  }
+
   async setUserBanned(adminId: string, userId: string, input: Record<string, unknown>) {
     const data = await this.store.read();
     const targetUser = data.users.find((user) => user.id === userId);
@@ -359,6 +471,145 @@ export class AuthService implements OnModuleInit {
     await this.store.write(data);
 
     return this.toPublicUser(targetUser);
+  }
+
+  async setUserPartner(adminId: string, userId: string, input: Record<string, unknown>) {
+    const data = await this.store.read();
+    const targetUser = data.users.find((user) => user.id === userId);
+
+    if (!targetUser) {
+      throw new BadRequestException("Usuario nao encontrado");
+    }
+
+    if (targetUser.id === adminId || targetUser.role === "admin") {
+      throw new BadRequestException("Nao e permitido alterar perfil admin");
+    }
+
+    if (!Boolean(input.partner)) {
+      targetUser.role = "client";
+      targetUser.partnerCouponCode = undefined;
+      targetUser.partnerDiscountPercent = undefined;
+      targetUser.partnerSince = undefined;
+      await this.store.write(data);
+      return this.toPublicUser(targetUser);
+    }
+
+    targetUser.role = "partner";
+    const requestedCouponCode = this.normalizeOptionalCoupon(input.couponCode);
+
+    if (requestedCouponCode) {
+      if (requestedCouponCode.length < 3) {
+        throw new BadRequestException("Cupom deve ter pelo menos 3 caracteres");
+      }
+
+      const couponOwner = data.users.find((user) => (
+        user.id !== targetUser.id
+        && user.partnerCouponCode?.toUpperCase() === requestedCouponCode
+      ));
+
+      if (couponOwner) {
+        throw new BadRequestException("Cupom ja esta em uso");
+      }
+    }
+
+    targetUser.partnerCouponCode = requestedCouponCode || targetUser.partnerCouponCode || this.generatePartnerCoupon(targetUser, data.users);
+    targetUser.partnerDiscountPercent = partnerDiscountPercent;
+    targetUser.partnerSince = targetUser.partnerSince || new Date().toISOString();
+    await this.store.write(data);
+
+    return this.toPublicUser(targetUser);
+  }
+
+  async getPartnerDashboard(userId: string, filters: { startDate?: string; endDate?: string } = {}) {
+    const data = await this.store.read();
+    const partner = data.users.find((user) => user.id === userId);
+
+    if (!partner) {
+      throw new UnauthorizedException("Usuario nao encontrado");
+    }
+
+    this.ensureUserCanAccess(partner);
+
+    if (partner.role !== "partner" && partner.role !== "admin") {
+      throw new UnauthorizedException("Acesso permitido apenas para parceiros");
+    }
+
+    const startDate = this.parseDashboardDate(filters.startDate, false);
+    const endDate = this.parseDashboardDate(filters.endDate, true);
+
+    if (startDate && endDate && startDate.getTime() > endDate.getTime()) {
+      throw new BadRequestException("Data inicial maior que data final");
+    }
+
+    const purchases = data.partnerPurchases
+      .filter((purchase) => {
+        const purchaseDate = new Date(purchase.createdAt);
+
+        return (partner.role === "admin" || purchase.partnerId === partner.id)
+          && (!startDate || purchaseDate >= startDate)
+          && (!endDate || purchaseDate <= endDate);
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    const totalCents = purchases.reduce((total, purchase) => total + purchase.totalCents, 0);
+    const discountCents = purchases.reduce((total, purchase) => total + purchase.discountCents, 0);
+    const productsById = new Map(data.products.map((product) => [product.id, product]));
+    const categoriesById = new Map(data.categories.map((category) => [category.id, category]));
+    const categoryMap = new Map<string, { categoryId?: string; categoryName: string; quantity: number; totalCents: number }>();
+    let itemCount = 0;
+
+    for (const purchase of purchases) {
+      for (const item of purchase.items) {
+        const quantity = Math.max(1, Math.floor(Number(item.quantity ?? 1)));
+        const product = item.productId ? productsById.get(item.productId) : undefined;
+        const category = product ? categoriesById.get(product.categoryId) : undefined;
+        const categoryId = category?.id ?? "uncategorized";
+        const current = categoryMap.get(categoryId) ?? {
+          categoryId: category?.id,
+          categoryName: category?.name ?? "Sem categoria",
+          quantity: 0,
+          totalCents: 0
+        };
+
+        current.quantity += quantity;
+        current.totalCents += Math.max(0, Math.floor(Number(item.priceCents ?? 0))) * quantity;
+        itemCount += quantity;
+        categoryMap.set(categoryId, current);
+      }
+    }
+
+    const categoryBreakdown = Array.from(categoryMap.values())
+      .sort((left, right) => right.quantity - left.quantity || right.totalCents - left.totalCents);
+
+    return {
+      partner: this.toPublicUser(partner),
+      purchases,
+      summary: {
+        purchaseCount: purchases.length,
+        itemCount,
+        totalCents,
+        discountCents,
+        commissionRate: partnerDiscountPercent,
+        commissionCents: Math.round(totalCents * (partnerDiscountPercent / 100)),
+        categoryBreakdown
+      }
+    };
+  }
+
+  private parseDashboardDate(value: unknown, endOfDay: boolean) {
+    if (typeof value !== "string" || !value.trim()) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+      ? new Date(`${trimmed}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}-03:00`)
+      : new Date(trimmed);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException("Filtro de data invalido");
+    }
+
+    return date;
   }
 
   async deleteUser(adminId: string, userId: string) {

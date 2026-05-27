@@ -67,9 +67,11 @@ type AuthUser = {
   name?: string;
   email: string;
   phone?: string;
-  role: "admin" | "client";
+  role: "admin" | "client" | "partner";
   hellpoints?: number;
   raffleTickets?: number;
+  partnerCouponCode?: string;
+  partnerDiscountPercent?: number;
 };
 
 type CartItem = {
@@ -233,8 +235,10 @@ export default function Page() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountPhone, setAccountPhone] = useState("");
   const [accountMessage, setAccountMessage] = useState("");
+  const [isAccountPhoneEditing, setIsAccountPhoneEditing] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [appliedCouponDiscountRate, setAppliedCouponDiscountRate] = useState(0);
   const [couponMessage, setCouponMessage] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
@@ -278,7 +282,7 @@ export default function Page() {
   const cartCount = cartLines.reduce((total, line) => total + line.item.quantity, 0);
   const cartTotalCents = cartLines.reduce((total, line) => total + line.product.priceCents * line.item.quantity, 0);
   const hasPhoneCoupon = Boolean(currentUser?.phone);
-  const couponDiscountCents = appliedCouponCode === phoneCouponCode ? Math.round(cartTotalCents * phoneCouponDiscountRate) : 0;
+  const couponDiscountCents = appliedCouponCode ? Math.round(cartTotalCents * appliedCouponDiscountRate) : 0;
   const cartFinalTotalCents = Math.max(0, cartTotalCents - couponDiscountCents);
   const cartCashback = cashbackFor(cartFinalTotalCents);
 
@@ -304,6 +308,7 @@ export default function Page() {
       const parsedUser = JSON.parse(authUser) as AuthUser;
       setCurrentUser(parsedUser);
       setAccountPhone(parsedUser.phone ?? "");
+      setIsAccountPhoneEditing(false);
       setAuthMessage("Login Google realizado.");
       setAuthModal(null);
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -320,6 +325,7 @@ export default function Page() {
         const parsedUser = JSON.parse(storedUser) as AuthUser;
         setCurrentUser(parsedUser);
         setAccountPhone(parsedUser.phone ?? "");
+        setIsAccountPhoneEditing(false);
       } catch {
         localStorage.removeItem("hellcifegeek.user");
         localStorage.removeItem("hellcifegeek.token");
@@ -370,6 +376,18 @@ export default function Page() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!accountMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setAccountMessage("");
+    }, 3200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [accountMessage]);
 
   useEffect(() => {
     try {
@@ -583,6 +601,7 @@ export default function Page() {
     localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
     setCurrentUser(user);
     setAccountPhone(user.phone ?? "");
+    setIsAccountPhoneEditing(false);
     setAuthModal(null);
   }
 
@@ -592,6 +611,7 @@ export default function Page() {
     setCurrentUser(null);
     setAccountOpen(false);
     setAccountPhone("");
+    setIsAccountPhoneEditing(false);
     setAccountMessage("");
     setCouponCode("");
     setAppliedCouponCode("");
@@ -618,10 +638,15 @@ export default function Page() {
     localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
     setCurrentUser(user);
     setAccountPhone(user.phone ?? "");
+    setIsAccountPhoneEditing(false);
     return user;
   }
 
-  async function registerCashback(totalCents: number) {
+  async function registerCashback(totalCents: number, purchase?: {
+    subtotalCents: number;
+    couponCode?: string;
+    items: Array<{ productId: string; name: string; quantity: number; priceCents: number }>;
+  }) {
     const token = localStorage.getItem("hellcifegeek.token");
 
     if (!token || totalCents <= 0) {
@@ -635,7 +660,12 @@ export default function Page() {
           "content-type": "application/json",
           authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ totalCents })
+        body: JSON.stringify({
+          totalCents,
+          subtotalCents: purchase?.subtotalCents,
+          couponCode: purchase?.couponCode,
+          items: purchase?.items
+        })
       });
 
       if (!response.ok) {
@@ -652,29 +682,49 @@ export default function Page() {
     }
   }
 
-  function applyCoupon(event: FormEvent<HTMLFormElement>) {
+  async function applyCoupon(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedCoupon = couponCode.trim().toUpperCase();
 
-    if (normalizedCoupon !== phoneCouponCode) {
+    if (!normalizedCoupon) {
       setAppliedCouponCode("");
+      setAppliedCouponDiscountRate(0);
       setCouponMessage("Cupom invalido.");
       return;
     }
 
-    if (!hasPhoneCoupon) {
-      setAppliedCouponCode("");
-      setCouponMessage("Adicione um celular na conta para liberar este cupom.");
+    if (normalizedCoupon === phoneCouponCode) {
+      if (!hasPhoneCoupon) {
+        setAppliedCouponCode("");
+        setAppliedCouponDiscountRate(0);
+        setCouponMessage("Adicione um celular na conta para liberar este cupom.");
+        return;
+      }
+
+      setAppliedCouponCode(phoneCouponCode);
+      setAppliedCouponDiscountRate(phoneCouponDiscountRate);
+      setCouponCode(phoneCouponCode);
+      setCouponMessage("Cupom de 5% aplicado.");
       return;
     }
 
-    setAppliedCouponCode(phoneCouponCode);
-    setCouponCode(phoneCouponCode);
-    setCouponMessage("Cupom de 5% aplicado.");
+    const response = await fetch(`${apiUrl}/auth/coupons/${encodeURIComponent(normalizedCoupon)}`, { cache: "no-store" });
+
+    if (!response.ok) {
+      setAppliedCouponCode("");
+      setAppliedCouponDiscountRate(0);
+      setCouponMessage("Cupom invalido.");
+      return;
+    }
+
+    const data = await response.json() as { code: string; discountPercent: number; partnerName?: string };
+    setAppliedCouponCode(data.code);
+    setAppliedCouponDiscountRate((data.discountPercent || 5) / 100);
+    setCouponCode(data.code);
+    setCouponMessage(data.partnerName ? `Cupom de ${data.partnerName} aplicado.` : "Cupom de parceiro aplicado.");
   }
 
-  async function saveAccountPhone(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function updateAccountPhone(nextPhone: string) {
     setAccountMessage("");
 
     const token = localStorage.getItem("hellcifegeek.token");
@@ -690,7 +740,7 @@ export default function Page() {
         "content-type": "application/json",
         authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ phone: accountPhone })
+      body: JSON.stringify({ phone: nextPhone })
     });
 
     if (!response.ok) {
@@ -702,7 +752,17 @@ export default function Page() {
     localStorage.setItem("hellcifegeek.user", JSON.stringify(user));
     setCurrentUser(user);
     setAccountPhone(user.phone ?? "");
+    setIsAccountPhoneEditing(false);
     setAccountMessage(user.phone ? `Celular salvo. Cupom ${phoneCouponCode} liberado.` : "Celular removido.");
+  }
+
+  async function saveAccountPhone(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await updateAccountPhone(accountPhone);
+  }
+
+  async function removeAccountPhone() {
+    await updateAccountPhone("");
   }
 
   function openWhatsApp(message: string) {
@@ -752,7 +812,16 @@ export default function Page() {
       "Podemos negociar?"
     ].join("\n");
 
-    const creditedCashback = await registerCashback(cartFinalTotalCents);
+    const creditedCashback = await registerCashback(cartFinalTotalCents, {
+      subtotalCents: cartTotalCents,
+      couponCode: appliedCouponCode,
+      items: cartLines.map((line) => ({
+        productId: line.product.id,
+        name: line.product.name,
+        quantity: line.item.quantity,
+        priceCents: line.product.priceCents
+      }))
+    });
     openWhatsApp(message);
     setCartMessage(creditedCashback > 0 ? `Abrindo conversa. ${creditedCashback} hellpoints adicionados.` : "Abrindo conversa no WhatsApp.");
   }
@@ -789,6 +858,8 @@ export default function Page() {
 
     if (data.user.role === "admin") {
       router.push("/admin");
+    } else if (data.user.role === "partner") {
+      router.push("/parceiro");
     }
   }
 
@@ -807,7 +878,9 @@ export default function Page() {
           name: formData.get("name") || "Cliente Hellcife",
           email: formData.get("email"),
           password: formData.get("password"),
-          phone: formData.get("phone")
+          phone: formData.get("phone"),
+          termsAccepted: formData.get("termsAccepted") === "on",
+          marketingEmailsOptIn: formData.get("marketingEmailsOptIn") === "on"
         })
       });
     } catch {
@@ -816,7 +889,7 @@ export default function Page() {
     }
 
     if (!response.ok) {
-      setAuthMessage("Nao foi possivel cadastrar.");
+      setAuthMessage("Aceite os termos e revise os dados do cadastro.");
       return;
     }
 
@@ -993,9 +1066,8 @@ export default function Page() {
       <footer className="footer">
         <span>© 2026 Hellcife Geek</span>
         <div>
-          <a href="#">Instagram</a>
-          <a href="#">Github</a>
-          <a href="#">Linkedin</a>
+          <a href="https://www.instagram.com/hellcifegeek" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="/politicas">Políticas</a>
         </div>
       </footer>
 
@@ -1179,24 +1251,54 @@ export default function Page() {
                 <span>{currentUser.email}</span>
               </div>
 
-              <form className="accountForm" onSubmit={saveAccountPhone}>
-                <label>
-                  Numero de celular
-                  <input
-                    type="tel"
-                    value={accountPhone}
-                    onChange={(event) => setAccountPhone(event.target.value)}
-                    placeholder="(81) 99999-9999"
-                    autoComplete="tel"
-                  />
-                </label>
-                <button type="submit">Salvar celular</button>
-              </form>
+              {currentUser.phone && !isAccountPhoneEditing ? (
+                <div className="accountForm accountPhoneSaved">
+                  <span>Numero de celular</span>
+                  <strong>{currentUser.phone}</strong>
+                  <div className="accountPhoneActions">
+                    <button type="button" onClick={() => {
+                      setAccountPhone(currentUser.phone ?? "");
+                      setIsAccountPhoneEditing(true);
+                    }}>Editar</button>
+                    <button type="button" className="secondary" onClick={removeAccountPhone}>Remover</button>
+                  </div>
+                </div>
+              ) : (
+                <form className="accountForm" onSubmit={saveAccountPhone}>
+                  <label>
+                    Numero de celular
+                    <input
+                      type="tel"
+                      value={accountPhone}
+                      onChange={(event) => setAccountPhone(event.target.value)}
+                      placeholder="(81) 99999-9999"
+                      autoComplete="tel"
+                    />
+                  </label>
+                  <div className="accountPhoneActions">
+                    <button type="submit">{currentUser.phone ? "Atualizar celular" : "Salvar celular"}</button>
+                    {currentUser.phone && (
+                      <button type="button" className="secondary" onClick={() => {
+                        setAccountPhone(currentUser.phone ?? "");
+                        setIsAccountPhoneEditing(false);
+                      }}>Cancelar</button>
+                    )}
+                  </div>
+                </form>
+              )}
 
               <div className="accountPanel">
                 <span>Cupons disponiveis</span>
                 <strong>{currentUser.phone ? `${phoneCouponCode} - 5% OFF` : "Adicione celular para liberar 5% OFF"}</strong>
               </div>
+
+              {currentUser.role === "partner" && (
+                <div className="accountPanel partnerPanel">
+                  <span>Parceiro</span>
+                  <strong>{currentUser.partnerCouponCode ?? "Cupom em configuracao"}</strong>
+                  <button type="button" onClick={() => router.push("/parceiro")}>Dashboard</button>
+                </div>
+              )}
 
               <div className="accountPanel">
                 <span>Hellpoints</span>
@@ -1209,7 +1311,7 @@ export default function Page() {
                 <button type="button" onClick={() => router.push("/hellpoints")}>Loja Hellpoints</button>
               </div>
 
-              {accountMessage && <p className="cartMessage">{accountMessage}</p>}
+              {accountMessage && <div className="accountToast" role="status">{accountMessage}</div>}
             </div>
 
             <div className="cartFooter">
@@ -1350,6 +1452,14 @@ export default function Page() {
             <label>
               Numero de celular <span>Opcional</span>
               <input type="tel" name="phone" placeholder="(81) 99999-9999" autoComplete="tel" />
+            </label>
+            <label className="authCheck">
+              <input type="checkbox" name="termsAccepted" required />
+              <span>Li e aceito as <a href="/politicas" target="_blank" rel="noopener noreferrer">políticas de compra, privacidade, sorteios e parceria</a>.</span>
+            </label>
+            <label className="authCheck">
+              <input type="checkbox" name="marketingEmailsOptIn" />
+              <span>Quero receber e-mails promocionais, eventos, drops e comunicados atípicos da Hellcife Geek.</span>
             </label>
             <div className="authActions">
               <button type="button" onClick={() => openAuthModal("login")}>Voltar</button>

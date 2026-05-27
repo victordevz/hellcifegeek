@@ -1,4 +1,4 @@
-export type UserRole = "client" | "admin";
+export type UserRole = "client" | "admin" | "partner";
 
 export type User = {
   id: string;
@@ -10,6 +10,12 @@ export type User = {
   hellpoints: number;
   raffleTickets: number;
   banned: boolean;
+  partnerCouponCode?: string;
+  partnerDiscountPercent?: number;
+  partnerSince?: string;
+  termsAcceptedAt?: string;
+  privacyAcceptedAt?: string;
+  marketingEmailsOptIn?: boolean;
   createdAt: string;
 };
 
@@ -41,10 +47,33 @@ export type Product = {
   updatedAt: string;
 };
 
+export type PartnerPurchaseItem = {
+  productId?: string;
+  name: string;
+  quantity: number;
+  priceCents: number;
+};
+
+export type PartnerPurchase = {
+  id: string;
+  partnerId: string;
+  customerId: string;
+  customerName?: string;
+  customerEmail: string;
+  couponCode: string;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  items: PartnerPurchaseItem[];
+  status: "whatsapp_opened";
+  createdAt: string;
+};
+
 export type Database = {
   users: User[];
   categories: Category[];
   products: Product[];
+  partnerPurchases: PartnerPurchase[];
 };
 
 export type RequestUser = {

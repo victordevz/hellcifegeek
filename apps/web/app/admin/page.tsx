@@ -36,10 +36,13 @@ type AdminUser = {
   name?: string;
   email: string;
   phone?: string;
-  role: "admin" | "client";
+  role: "admin" | "client" | "partner";
   hellpoints?: number;
   raffleTickets?: number;
   banned?: boolean;
+  partnerCouponCode?: string;
+  partnerDiscountPercent?: number;
+  partnerSince?: string;
   createdAt: string;
 };
 
@@ -110,6 +113,7 @@ export default function AdminPage() {
   const recommendedProducts = products.filter((product) => product.recommended).length;
   const totalStock = products.reduce((total, product) => total + product.stock, 0);
   const clientUsers = users.filter((user) => user.role === "client");
+  const partnerUsers = users.filter((user) => user.role === "partner");
 
   function authHeaders(authToken = token) {
     return {
@@ -436,6 +440,57 @@ export default function AdminPage() {
     await loadUsers();
   }
 
+  async function toggleUserPartner(user: AdminUser) {
+    if (user.role === "admin") {
+      setMessage("Nao e permitido alterar conta admin.");
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/admin/users/${user.id}/partner`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ partner: user.role !== "partner" })
+    });
+
+    if (!response.ok) {
+      setMessage("Nao foi possivel atualizar o parceiro.");
+      return;
+    }
+
+    const updatedUser = await response.json() as AdminUser;
+    setMessage(updatedUser.role === "partner" ? `Parceiro ativado. Cupom ${updatedUser.partnerCouponCode}.` : "Parceiro removido.");
+    await loadUsers();
+  }
+
+  async function updatePartnerCoupon(user: AdminUser) {
+    if (user.role !== "partner") {
+      setMessage("Transforme o usuario em parceiro antes de editar o cupom.");
+      return;
+    }
+
+    const nextCoupon = window.prompt("Novo codigo do cupom", user.partnerCouponCode ?? "");
+
+    if (nextCoupon === null) {
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/auth/admin/users/${user.id}/partner`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ partner: true, couponCode: nextCoupon })
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Nao foi possivel atualizar o cupom." })) as { message?: string };
+      setMessage(error.message ?? "Nao foi possivel atualizar o cupom.");
+      return;
+    }
+
+    const updatedUser = await response.json() as AdminUser;
+    setMessage(`Cupom atualizado para ${updatedUser.partnerCouponCode}.`);
+    await loadUsers();
+  }
+
   async function deleteUser(user: AdminUser) {
     if (user.role === "admin") {
       setMessage("Nao e permitido deletar conta admin.");
@@ -511,6 +566,7 @@ export default function AdminPage() {
             <strong>{totalStock}<span>Em estoque</span></strong>
             <strong>{recommendedProducts}<span>Recomendados</span></strong>
             <strong>{clientUsers.length}<span>Usuarios</span></strong>
+            <strong>{partnerUsers.length}<span>Parceiros</span></strong>
           </div>
         </header>
 
@@ -682,16 +738,25 @@ export default function AdminPage() {
               <article key={user.id}>
                 <div>
                   <strong>{user.email}</strong>
-                  <span>{user.name || "Sem nome"} · {user.role === "admin" ? "Admin" : "Cliente"}</span>
+                  <span>{user.name || "Sem nome"} · {user.role === "admin" ? "Admin" : user.role === "partner" ? "Parceiro" : "Cliente"}</span>
                   {user.phone && <small>{user.phone}</small>}
+                  {user.partnerCouponCode && <small>Cupom {user.partnerCouponCode} · {user.partnerDiscountPercent ?? 5}%</small>}
                 </div>
                 <div className="adminStatus">
-                  <span className={user.role === "admin" ? "ok" : "muted"}>{user.role === "admin" ? "Admin" : "Cliente"}</span>
+                  <span className={user.role === "admin" || user.role === "partner" ? "ok" : "muted"}>{user.role === "admin" ? "Admin" : user.role === "partner" ? "Parceiro" : "Cliente"}</span>
                   {user.banned && <span className="danger">Banido</span>}
                   <span>{formatNumber(user.hellpoints)} HP</span>
                   <span>{formatNumber(user.raffleTickets)} tickets</span>
                 </div>
                 <div className="adminRowActions">
+                  <button type="button" disabled={user.role === "admin"} onClick={() => toggleUserPartner(user)}>
+                    {user.role === "partner" ? "Remover parceiro" : "Tornar parceiro"}
+                  </button>
+                  {user.role === "partner" && (
+                    <button type="button" onClick={() => updatePartnerCoupon(user)}>
+                      Editar cupom
+                    </button>
+                  )}
                   <button type="button" disabled={user.role === "admin"} onClick={() => toggleUserBan(user)}>
                     {user.banned ? "Desbanir" : "Banir"}
                   </button>

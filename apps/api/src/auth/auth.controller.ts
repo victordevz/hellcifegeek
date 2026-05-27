@@ -35,6 +35,12 @@ export class AuthController {
     return this.auth.setUserBanned(request.user.id, userId, body as Record<string, unknown>);
   }
 
+  @Patch("admin/users/:id/partner")
+  @UseGuards(AuthGuard, AdminGuard)
+  adminPartnerUser(@Req() request: { user: RequestUser }, @Param("id") userId: string, @Body() body: unknown) {
+    return this.auth.setUserPartner(request.user.id, userId, body as Record<string, unknown>);
+  }
+
   @Delete("admin/users/:id")
   @UseGuards(AuthGuard, AdminGuard)
   adminDeleteUser(@Req() request: { user: RequestUser }, @Param("id") userId: string) {
@@ -53,6 +59,11 @@ export class AuthController {
   @Post("google/callback")
   googleCallback(@Body() body: unknown) {
     return this.auth.loginWithGoogleCode(body as Record<string, unknown>);
+  }
+
+  @Get("coupons/:code")
+  coupon(@Param("code") code: string) {
+    return this.auth.validateCoupon(code);
   }
 
   @Get("me")
@@ -77,5 +88,15 @@ export class AuthController {
   @UseGuards(AuthGuard)
   addCashback(@Req() request: { user: RequestUser }, @Body() body: unknown) {
     return this.auth.addCashback(request.user.id, body as Record<string, unknown>);
+  }
+
+  @Get("partner/dashboard")
+  @UseGuards(AuthGuard)
+  partnerDashboard(
+    @Req() request: { user: RequestUser },
+    @Query("startDate") startDate: string | undefined,
+    @Query("endDate") endDate: string | undefined
+  ) {
+    return this.auth.getPartnerDashboard(request.user.id, { startDate, endDate });
   }
 }

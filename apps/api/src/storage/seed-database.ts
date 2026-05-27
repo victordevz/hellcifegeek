@@ -137,5 +137,6 @@ export const seedDatabase = {
       "createdAt": "2026-05-25T23:59:47.336Z",
       "updatedAt": "2026-05-25T23:59:47.336Z"
     }
-  ]
+  ],
+  "partnerPurchases": []
 } satisfies Database;

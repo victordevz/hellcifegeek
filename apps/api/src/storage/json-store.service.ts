@@ -8,7 +8,8 @@ import { seedDatabase } from "./seed-database";
 const emptyDatabase = (): Database => ({
   users: [],
   categories: [],
-  products: []
+  products: [],
+  partnerPurchases: []
 });
 
 type SupabaseStateRow = {
@@ -38,6 +39,11 @@ export class JsonStoreService implements OnModuleInit {
 
   async read() {
     await this.ensureReady();
+
+    if (this.driver === "supabase") {
+      await this.loadSupabase();
+    }
+
     return structuredClone(this.data);
   }
 
@@ -135,14 +141,33 @@ export class JsonStoreService implements OnModuleInit {
   private normalizeDatabase(database: Database) {
     const nextData = structuredClone(database ?? emptyDatabase());
 
-    nextData.users = Array.isArray(nextData.users) ? nextData.users.map((user) => ({
-      ...user,
-      hellpoints: Math.max(0, Math.floor(Number(user.hellpoints ?? 0))),
-      raffleTickets: Math.max(0, Math.floor(Number(user.raffleTickets ?? 0))),
-      banned: Boolean(user.banned)
-    })) : [];
+    nextData.users = Array.isArray(nextData.users) ? nextData.users.map((user) => {
+      const role = user.role === "admin" || user.role === "partner" ? user.role : "client";
+
+      return {
+        ...user,
+        role,
+        hellpoints: Math.max(0, Math.floor(Number(user.hellpoints ?? 0))),
+        raffleTickets: Math.max(0, Math.floor(Number(user.raffleTickets ?? 0))),
+        banned: Boolean(user.banned),
+        partnerCouponCode: typeof user.partnerCouponCode === "string" ? user.partnerCouponCode.trim().toUpperCase() || undefined : undefined,
+        partnerDiscountPercent: Math.max(0, Math.floor(Number(user.partnerDiscountPercent ?? 0))) || undefined,
+        partnerSince: typeof user.partnerSince === "string" ? user.partnerSince : undefined,
+        termsAcceptedAt: typeof user.termsAcceptedAt === "string" ? user.termsAcceptedAt : undefined,
+        privacyAcceptedAt: typeof user.privacyAcceptedAt === "string" ? user.privacyAcceptedAt : undefined,
+        marketingEmailsOptIn: Boolean(user.marketingEmailsOptIn)
+      };
+    }) : [];
     nextData.categories = Array.isArray(nextData.categories) ? nextData.categories : [];
     nextData.products = Array.isArray(nextData.products) ? nextData.products : [];
+    nextData.partnerPurchases = Array.isArray(nextData.partnerPurchases) ? nextData.partnerPurchases.map((purchase) => ({
+      ...purchase,
+      subtotalCents: Math.max(0, Math.floor(Number(purchase.subtotalCents ?? purchase.totalCents ?? 0))),
+      discountCents: Math.max(0, Math.floor(Number(purchase.discountCents ?? 0))),
+      totalCents: Math.max(0, Math.floor(Number(purchase.totalCents ?? 0))),
+      items: Array.isArray(purchase.items) ? purchase.items : [],
+      status: "whatsapp_opened"
+    })) : [];
 
     return nextData;
   }
