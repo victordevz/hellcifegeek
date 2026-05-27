@@ -11,15 +11,24 @@ export async function GET(request: NextRequest) {
   const error = request.nextUrl.searchParams.get("error");
   const state = request.nextUrl.searchParams.get("state");
   const storedState = request.cookies.get("google_oauth_state")?.value;
+  const mode = request.cookies.get("google_oauth_mode")?.value === "signup" ? "signup" : "login";
+  const termsAccepted = request.cookies.get("google_oauth_terms")?.value === "true";
+  const marketingEmailsOptIn = request.cookies.get("google_oauth_marketing")?.value === "true";
   const homeUrl = new URL("/", siteUrl(request));
+
+  const clearGoogleCookies = (response: NextResponse) => {
+    for (const name of ["google_oauth_state", "google_oauth_mode", "google_oauth_terms", "google_oauth_marketing"]) {
+      response.cookies.set(name, "", {
+        maxAge: 0,
+        path: "/api/auth/callback/google"
+      });
+    }
+  };
 
   const redirectWithError = (message: string) => {
     homeUrl.hash = `auth_error=${encodeURIComponent(message)}`;
     const redirect = NextResponse.redirect(homeUrl);
-    redirect.cookies.set("google_oauth_state", "", {
-      maxAge: 0,
-      path: "/api/auth/callback/google"
-    });
+    clearGoogleCookies(redirect);
     return redirect;
   };
 
@@ -36,7 +45,10 @@ export async function GET(request: NextRequest) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       code,
-      redirectUri: `${siteUrl(request)}/api/auth/callback/google`
+      redirectUri: `${siteUrl(request)}/api/auth/callback/google`,
+      mode,
+      termsAccepted,
+      marketingEmailsOptIn
     })
   });
 
@@ -53,10 +65,7 @@ export async function GET(request: NextRequest) {
   homeUrl.hash = params.toString();
 
   const redirect = NextResponse.redirect(homeUrl);
-  redirect.cookies.set("google_oauth_state", "", {
-    maxAge: 0,
-    path: "/api/auth/callback/google"
-  });
+  clearGoogleCookies(redirect);
 
   return redirect;
 }

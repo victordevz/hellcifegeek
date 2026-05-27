@@ -255,6 +255,8 @@ export default function Page() {
   const [couponMessage, setCouponMessage] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
+  const [googleMarketingEmailsOptIn, setGoogleMarketingEmailsOptIn] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ApiProduct | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [productQuantity, setProductQuantity] = useState(1);
@@ -366,8 +368,16 @@ export default function Page() {
       setAuthModal(null);
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     } else if (authError) {
-      setAuthMessage(`Login Google falhou: ${authError}`);
-      setAuthModal("login");
+      if (authError === "google_account_not_found") {
+        setAuthMessage("Conta Google ainda não cadastrada. Crie sua conta e aceite os termos para continuar.");
+        setAuthModal("signup");
+      } else if (authError === "google_terms_required") {
+        setAuthMessage("Aceite os termos para cadastrar com Google.");
+        setAuthModal("signup");
+      } else {
+        setAuthMessage(`Login Google falhou: ${authError}`);
+        setAuthModal("login");
+      }
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
 
@@ -1062,6 +1072,26 @@ export default function Page() {
     }
   }
 
+  function startGoogleSignup() {
+    setAuthMessage("");
+
+    if (!googleTermsAccepted) {
+      setAuthMessage("Aceite os termos para cadastrar com Google.");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      mode: "signup",
+      termsAccepted: "1"
+    });
+
+    if (googleMarketingEmailsOptIn) {
+      params.set("marketingEmailsOptIn", "1");
+    }
+
+    window.location.assign(`/api/auth/google?${params.toString()}`);
+  }
+
   async function submitManualLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -1659,7 +1689,7 @@ export default function Page() {
           </div>
 
           <div className="authChoices">
-            <button type="button" onClick={() => window.location.assign("/api/auth/google")}>
+            <button type="button" onClick={() => window.location.assign("/api/auth/google?mode=login")}>
               <ChromeMark />
               <span>Entrar com Google</span>
             </button>
@@ -1725,7 +1755,7 @@ export default function Page() {
           </div>
 
           <div className="authChoices">
-            <button type="button" onClick={() => window.location.assign("/api/auth/google")}>
+            <button type="button" onClick={startGoogleSignup}>
               <ChromeMark />
               <span>Cadastrar com Google</span>
             </button>
@@ -1733,6 +1763,14 @@ export default function Page() {
               <AppleMark />
               <span>Apple indisponivel</span>
             </button>
+            <label className="authCheck googleTerms">
+              <input type="checkbox" checked={googleTermsAccepted} onChange={(event) => setGoogleTermsAccepted(event.target.checked)} />
+              <span>Li e aceito as <a href="/politicas" target="_blank" rel="noopener noreferrer">políticas</a>.</span>
+            </label>
+            <label className="authCheck googleTerms">
+              <input type="checkbox" checked={googleMarketingEmailsOptIn} onChange={(event) => setGoogleMarketingEmailsOptIn(event.target.checked)} />
+              <span>Quero receber e-mails promocionais.</span>
+            </label>
           </div>
 
           <form className="manualForm" onSubmit={submitManualSignup}>
@@ -1770,11 +1808,11 @@ export default function Page() {
             </label>
             <label className="authCheck">
               <input type="checkbox" name="termsAccepted" required />
-              <span>Li e aceito as <a href="/politicas" target="_blank" rel="noopener noreferrer">políticas de compra, privacidade, sorteios e parceria</a>.</span>
+              <span>Aceito as <a href="/politicas" target="_blank" rel="noopener noreferrer">políticas e termos</a>.</span>
             </label>
             <label className="authCheck">
               <input type="checkbox" name="marketingEmailsOptIn" />
-              <span>Quero receber e-mails promocionais, eventos, drops e comunicados atípicos da Hellcife Geek.</span>
+              <span>Quero receber e-mails promocionais.</span>
             </label>
             <div className="authActions">
               <button type="button" onClick={() => openAuthModal("login")}>Voltar</button>

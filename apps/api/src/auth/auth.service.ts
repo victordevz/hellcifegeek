@@ -174,8 +174,18 @@ export class AuthService implements OnModuleInit {
     const email = this.normalizeEmail(userInfo.email);
     const data = await this.store.read();
     let user = data.users.find((item) => item.email === email);
+    const mode = typeof input.mode === "string" ? input.mode : "login";
 
     if (!user) {
+      if (mode !== "signup") {
+        throw new UnauthorizedException("google_account_not_found");
+      }
+
+      if (input.termsAccepted !== true) {
+        throw new BadRequestException("google_terms_required");
+      }
+
+      const now = new Date().toISOString();
       user = {
         id: crypto.randomUUID(),
         name: userInfo.name?.trim() || email.split("@")[0],
@@ -186,7 +196,10 @@ export class AuthService implements OnModuleInit {
         hellpoints: signupHellpointsBonus,
         raffleTickets: 0,
         banned: false,
-        createdAt: new Date().toISOString()
+        termsAcceptedAt: now,
+        privacyAcceptedAt: now,
+        marketingEmailsOptIn: input.marketingEmailsOptIn === true,
+        createdAt: now
       };
       data.users.push(user);
       await this.store.write(data);

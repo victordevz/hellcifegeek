@@ -178,7 +178,7 @@ describe("Hellcife Geek API", () => {
     expect(meResponse.body.phone).toBe("81888887777");
   });
 
-  it("supports Google OAuth redirect and callback registration", async () => {
+  it("supports Google OAuth login only for existing accounts and signup with accepted terms", async () => {
     const redirect = await request(httpServer)
       .get("/api/auth/google?redirect_uri=http://localhost:3000/api/auth/callback/google&state=abc")
       .expect(302);
@@ -187,10 +187,28 @@ describe("Hellcife Geek API", () => {
 
     const callback = await request(httpServer)
       .post("/api/auth/google/callback")
-      .send({ code: "valid-code", redirectUri: "http://localhost:3000/api/auth/callback/google" })
+      .send({ code: "valid-code", redirectUri: "http://localhost:3000/api/auth/callback/google", mode: "login" })
+      .expect(401);
+    expect(callback.body.message).toBe("google_account_not_found");
+
+    await request(httpServer)
+      .post("/api/auth/google/callback")
+      .send({ code: "valid-code", redirectUri: "http://localhost:3000/api/auth/callback/google", mode: "signup" })
+      .expect(400);
+
+    const signup = await request(httpServer)
+      .post("/api/auth/google/callback")
+      .send({ code: "valid-code", redirectUri: "http://localhost:3000/api/auth/callback/google", mode: "signup", termsAccepted: true })
       .expect(201);
-    expect(callback.body.user.email).toBe("google@test.local");
-    expect(callback.body.token).toBeTruthy();
+    expect(signup.body.user.email).toBe("google@test.local");
+    expect(signup.body.user.termsAcceptedAt).toBeTruthy();
+    expect(signup.body.token).toBeTruthy();
+
+    const login = await request(httpServer)
+      .post("/api/auth/google/callback")
+      .send({ code: "valid-code", redirectUri: "http://localhost:3000/api/auth/callback/google", mode: "login" })
+      .expect(201);
+    expect(login.body.user.email).toBe("google@test.local");
   });
 
   it("creates and manages categories", async () => {

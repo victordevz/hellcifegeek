@@ -2706,7 +2706,7 @@ h2 {
   justify-content: space-between;
   gap: 18px;
   border-bottom: 2px solid var(--black);
-  padding: 18px;
+  padding: 14px 18px;
 }
 
 .authHeader span,
@@ -2725,12 +2725,12 @@ h2 {
 
 .authHeader span {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   font-size: 13px;
 }
 
 .authHeader h2 {
-  font-size: clamp(40px, 7vw, 72px);
+  font-size: clamp(38px, 6vw, 58px);
   line-height: 0.86;
 }
 
@@ -2756,8 +2756,8 @@ h2 {
 .authChoices,
 .manualForm {
   display: grid;
-  gap: 10px;
-  padding: 18px;
+  gap: 8px;
+  padding: 14px 18px;
 }
 
 .authChoices button,
@@ -2765,7 +2765,7 @@ h2 {
 .authActions a,
 .authActions button {
   display: flex;
-  min-height: 58px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
@@ -2838,36 +2838,43 @@ h2 {
 
 .manualForm label {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   font-size: 13px;
 }
 
-.manualForm .authCheck {
+.authCheck {
   display: grid;
   grid-template-columns: 22px 1fr;
   align-items: start;
   gap: 10px;
   border: 2px solid var(--black);
   background: var(--white);
-  padding: 10px;
+  padding: 8px 10px;
   line-height: 1.35;
 }
 
-.manualForm .authCheck input {
+.authCheck input {
   width: 18px;
   min-height: 18px;
   margin-top: 1px;
   accent-color: var(--black);
 }
 
-.manualForm .authCheck span {
+.authCheck span {
   opacity: 1;
 }
 
-.manualForm .authCheck a {
+.authCheck a {
   color: var(--black);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.googleTerms {
+  font-family: var(--font-space), monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .authMessage {
@@ -2895,7 +2902,7 @@ h2 {
 
 .manualForm input {
   width: 100%;
-  min-height: 54px;
+  min-height: 48px;
   border: 2px solid var(--black);
   border-radius: 0;
   background: var(--white);
@@ -2907,7 +2914,7 @@ h2 {
   outline: 0;
 }
 
-.manualForm .authCheck input {
+.authCheck input {
   width: 18px;
   min-height: 18px;
   padding: 0;
