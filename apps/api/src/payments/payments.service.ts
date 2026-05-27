@@ -495,7 +495,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private cashbackFor(totalCents: number) {
-    return Math.round(totalCents / 100) * 10;
+    return Math.max(0, Math.floor(totalCents / 10));
   }
 
   private normalizeOptionalCoupon(value: unknown) {

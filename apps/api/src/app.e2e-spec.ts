@@ -394,9 +394,13 @@ describe("Hellcife Geek API", () => {
       .set(auth(client))
       .expect(200);
     expect(payment.body.status).toBe("approved");
+    expect(payment.body.cashback).toBe(449);
 
     const payments = await request(httpServer).get("/api/payments").set(auth(client)).expect(200);
     expect(payments.body.some((item: { id: string; status: string }) => item.id === paymentId && item.status === "approved")).toBe(true);
+
+    const updatedClient = await request(httpServer).get("/api/auth/me").set(auth(client)).expect(200);
+    expect(updatedClient.body.hellpoints).toBe(449);
 
     const soldProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
     expect(soldProduct.body.stock).toBe(3);

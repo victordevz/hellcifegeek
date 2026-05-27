@@ -376,8 +376,7 @@ export class AuthService implements OnModuleInit {
     }
 
     this.ensureUserCanAccess(user);
-    const roundedReais = Math.round(totalCents / 100);
-    const cashback = roundedReais * 10;
+    const cashback = Math.max(0, Math.floor(totalCents / 10));
     user.hellpoints = this.normalizePoints(user.hellpoints) + cashback;
     user.raffleTickets = this.normalizePoints(user.raffleTickets);
     const couponCode = this.normalizeOptionalCoupon(input.couponCode);
