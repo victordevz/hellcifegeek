@@ -29,7 +29,7 @@ type Order = {
   expiresAt?: string;
 };
 
-type OrderTab = "all" | "to_pay" | "to_ship" | "shipped" | "done";
+type OrderTab = "all" | "to_pay" | "to_ship" | "shipped" | "done" | "cancelled";
 
 function formatCents(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -90,6 +90,10 @@ function orderPhase(order: Order) {
     return "A ser enviado";
   }
 
+  if (order.status === "expired" || order.status === "cancelled" || order.status === "rejected" || isExpired(order)) {
+    return "Cancelado";
+  }
+
   return "Concluído";
 }
 
@@ -117,6 +121,7 @@ export default function OrdersPage() {
     return new Map(products.map((product) => [product.id, product]));
   }, [products]);
   const pendingOrders = orders.filter((order) => order.status === "pending" && !isExpired(order));
+  const cancelledOrders = orders.filter((order) => order.status === "expired" || order.status === "cancelled" || order.status === "rejected" || isExpired(order));
   const filteredOrders = orders.filter((order) => {
     if (activeTab === "all") {
       return true;
@@ -134,7 +139,11 @@ export default function OrdersPage() {
       return false;
     }
 
-    return order.status !== "pending";
+    if (activeTab === "cancelled") {
+      return order.status === "expired" || order.status === "cancelled" || order.status === "rejected" || isExpired(order);
+    }
+
+    return order.status === "refunded";
   });
   const selectedOrder = orders.find((order) => order.id === selectedOrderId);
   const tabs: Array<{ id: OrderTab; label: string; count: number }> = [
@@ -142,7 +151,8 @@ export default function OrdersPage() {
     { id: "to_pay", label: "A ser pago", count: pendingOrders.length },
     { id: "to_ship", label: "A ser enviado", count: orders.filter((order) => order.status === "approved").length },
     { id: "shipped", label: "Enviado", count: 0 },
-    { id: "done", label: "Concluído", count: orders.filter((order) => order.status !== "pending").length }
+    { id: "done", label: "Concluído", count: orders.filter((order) => order.status === "refunded").length },
+    { id: "cancelled", label: "Cancelado", count: cancelledOrders.length }
   ];
 
   async function loadOrders() {
