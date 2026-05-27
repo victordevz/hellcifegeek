@@ -22,7 +22,7 @@ type LoginInput = {
 
 const signupHellpointsBonus = 50;
 const raffleTicketCost = 50;
-const partnerDiscountPercent = 5;
+const partnerDiscountPercent = 10;
 const launchRaffleId = "launch-8bitdo-controller";
 const launchRaffleGoal = 125;
 const launchRaffleTitle = "Sorteio de lançamento";

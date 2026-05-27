@@ -37,7 +37,7 @@ export const seedDatabase = {
     {
       "id": "ebaae62b-afc3-463c-a622-af673ccb2729",
       "name": "Gengar GameFreak Openbox Colab TOKYOTV",
-      "priceCents": 9999,
+      "priceCents": 10999,
       "stock": 1,
       "currency": "BRL",
       "photoUrl": "https://vweeudkxylekqiukjazw.supabase.co/storage/v1/object/public/images/products/2026-05-25/f5aaa674-1bd5-459d-a188-5e714bcdbc82.png",
@@ -59,7 +59,7 @@ export const seedDatabase = {
     {
       "id": "78cf4e2b-4992-4ed5-afce-bba2636d5974",
       "name": "PSYDUCK GameFreak Openbox Colab TOKYOTV",
-      "priceCents": 7999,
+      "priceCents": 8799,
       "stock": 1,
       "currency": "BRL",
       "photoUrl": "https://vweeudkxylekqiukjazw.supabase.co/storage/v1/object/public/images/products/2026-05-25/69774468-ed9f-432b-a040-3a362444df79.png",
@@ -79,7 +79,7 @@ export const seedDatabase = {
     {
       "id": "19cd4aa2-2587-445e-8f7f-1037316e064f",
       "name": "Eeve GameFreak Openbox Colab TOKYOTV",
-      "priceCents": 7999,
+      "priceCents": 8799,
       "stock": 1,
       "currency": "BRL",
       "photoUrl": "https://vweeudkxylekqiukjazw.supabase.co/storage/v1/object/public/images/products/2026-05-25/9af65dae-b98a-4dd0-b91c-20ffd28ee0a3.png",
@@ -99,7 +99,7 @@ export const seedDatabase = {
     {
       "id": "af54a4de-78a9-41e6-bc3b-a84850d9f98e",
       "name": "Snorlax GameFreak Openbox Colab Sleep Hour",
-      "priceCents": 5999,
+      "priceCents": 6599,
       "stock": 1,
       "currency": "BRL",
       "photoUrl": "https://vweeudkxylekqiukjazw.supabase.co/storage/v1/object/public/images/products/2026-05-25/9991f473-dd13-4678-b8ba-e5d2fc1d64b1.png",
@@ -120,7 +120,7 @@ export const seedDatabase = {
     {
       "id": "4006e558-1683-4303-b96c-f86ce7b5d465",
       "name": "Loot Box Pokebola",
-      "priceCents": 999,
+      "priceCents": 1099,
       "stock": 12,
       "currency": "BRL",
       "photoUrl": "https://vweeudkxylekqiukjazw.supabase.co/storage/v1/object/public/images/products/2026-05-25/1512e667-8b46-48f3-b7e5-eb1c5bd29153.png",

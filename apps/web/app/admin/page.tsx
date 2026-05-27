@@ -827,7 +827,7 @@ export default function AdminPage() {
                   <strong>{user.email}</strong>
                   <span>{user.name || "Sem nome"} · {user.role === "admin" ? "Admin" : user.role === "partner" ? "Parceiro" : "Cliente"}</span>
                   {user.phone && <small>{user.phone}</small>}
-                  {user.partnerCouponCode && <small>Cupom {user.partnerCouponCode} · {user.partnerDiscountPercent ?? 5}%</small>}
+                  {user.partnerCouponCode && <small>Cupom {user.partnerCouponCode} · {user.partnerDiscountPercent ?? 10}%</small>}
                 </div>
                 <div className="adminStatus">
                   <span className={user.role === "admin" || user.role === "partner" ? "ok" : "muted"}>{user.role === "admin" ? "Admin" : user.role === "partner" ? "Parceiro" : "Cliente"}</span>

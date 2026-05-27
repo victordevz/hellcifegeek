@@ -880,6 +880,11 @@ export default function Page() {
     }
 
     if (normalizedCoupon === phoneCouponCode) {
+      if (appliedCouponCode && appliedCouponCode !== phoneCouponCode) {
+        setCouponMessage("Remova o cupom atual antes de usar outro.");
+        return;
+      }
+
       if (!hasPhoneCoupon) {
         setAppliedCouponCode("");
         setAppliedCouponDiscountRate(0);
@@ -894,6 +899,11 @@ export default function Page() {
       return;
     }
 
+    if (appliedCouponCode && appliedCouponCode !== normalizedCoupon) {
+      setCouponMessage("Remova o cupom atual antes de usar outro.");
+      return;
+    }
+
     const response = await fetch(`${apiUrl}/auth/coupons/${encodeURIComponent(normalizedCoupon)}`, { cache: "no-store" });
 
     if (!response.ok) {
@@ -905,7 +915,7 @@ export default function Page() {
 
     const data = await response.json() as { code: string; discountPercent: number; partnerName?: string };
     setAppliedCouponCode(data.code);
-    setAppliedCouponDiscountRate((data.discountPercent || 5) / 100);
+    setAppliedCouponDiscountRate((data.discountPercent || 10) / 100);
     setCouponCode(data.code);
     setCouponMessage("");
   }
@@ -1483,6 +1493,20 @@ export default function Page() {
                   </label>
                   <button type="submit" disabled={cartLines.length === 0}>Aplicar</button>
                 </form>
+              )}
+              {appliedCouponCode && (
+                <button
+                  type="button"
+                  className="cartCouponRemove"
+                  onClick={() => {
+                    setCouponCode("");
+                    setAppliedCouponCode("");
+                    setAppliedCouponDiscountRate(0);
+                    setCouponMessage("");
+                  }}
+                >
+                  Remover cupom {appliedCouponCode}
+                </button>
               )}
               {couponMessage && !appliedCouponCode && <p className="cartMessage">{couponMessage}</p>}
               <div>

@@ -214,7 +214,7 @@ export default function PartnerPage() {
         <div className="partnerCoupon">
           <span>Cupom ativo</span>
           <strong>{dashboard?.partner.partnerCouponCode ?? "--"}</strong>
-          <small>{dashboard?.partner.partnerDiscountPercent ?? 5}% OFF para clientes</small>
+          <small>{dashboard?.partner.partnerDiscountPercent ?? 10}% OFF para clientes</small>
         </div>
       </section>
 
