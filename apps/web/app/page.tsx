@@ -86,7 +86,14 @@ type AuthUser = {
 
 type CartItem = {
   productId: string;
+  variationId?: string;
   quantity: number;
+};
+
+type CartLine = {
+  item: CartItem;
+  product: ApiProduct;
+  variation?: ProductVariation;
 };
 
 type PixPayment = {
@@ -94,7 +101,7 @@ type PixPayment = {
   status: "pending" | "approved" | "rejected" | "cancelled" | "expired" | "refunded";
   totalCents: number;
   cashback: number;
-  items?: Array<{ productId?: string; name: string; quantity: number; priceCents: number }>;
+  items?: Array<{ productId?: string; variationId?: string; variationName?: string; name: string; quantity: number; priceCents: number }>;
   pixQrCode?: string;
   pixQrCodeBase64?: string;
   pixTicketUrl?: string;
@@ -117,8 +124,12 @@ function formatCents(value: number) {
   }).format(value / 100);
 }
 
+function priceFor(product: ApiProduct, variation?: ProductVariation) {
+  return variation?.priceCents ?? product.priceCents;
+}
+
 function formatVariationPrice(product: ApiProduct, variation: ProductVariation) {
-  return formatCents(variation.priceCents ?? product.priceCents);
+  return formatCents(priceFor(product, variation));
 }
 
 function isPendingPixExpired(payment: PixPayment | null) {
@@ -138,12 +149,20 @@ function productImages(product: ApiProduct) {
   return images.filter(Boolean);
 }
 
-function stockFor(product: ApiProduct) {
+function stockFor(product: ApiProduct, variation?: ProductVariation) {
+  if (variation) {
+    return Math.max(0, Math.floor(Number(variation.stock ?? product.stock ?? 0)));
+  }
+
+  if (product.variations?.length && product.variations.every((entry) => entry.stock !== undefined)) {
+    return product.variations.reduce((total, entry) => total + Math.max(0, Math.floor(Number(entry.stock ?? 0))), 0);
+  }
+
   return Math.max(0, Math.floor(Number(product.stock ?? 0)));
 }
 
-function stockLabel(product: ApiProduct) {
-  const stock = stockFor(product);
+function stockLabel(product: ApiProduct, variation?: ProductVariation) {
+  const stock = stockFor(product, variation);
 
   if (!product.active || stock === 0) {
     return "SOLD OUT";
@@ -272,6 +291,7 @@ export default function Page() {
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [googleMarketingEmailsOptIn, setGoogleMarketingEmailsOptIn] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ApiProduct | null>(null);
+  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [productQuantity, setProductQuantity] = useState(1);
   const [cartOpen, setCartOpen] = useState(false);
@@ -310,19 +330,24 @@ export default function Page() {
   const productsById = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
   }, [products]);
-  const cartLines = cartItems
-    .map((item) => {
+  const selectedVariation = useMemo(() => {
+    return selectedProduct?.variations?.find((variation) => variation.id === selectedVariationId);
+  }, [selectedProduct, selectedVariationId]);
+  const cartLines: CartLine[] = cartItems
+    .flatMap((item) => {
       const product = productsById.get(item.productId);
-      return product ? { item, product } : null;
-    })
-    .filter((line): line is { item: CartItem; product: ApiProduct } => Boolean(line));
+      const variation = item.variationId ? product?.variations?.find((entry) => entry.id === item.variationId) : undefined;
+      return product ? [{ item, product, variation }] : [];
+    });
   const cartCount = cartLines.reduce((total, line) => total + line.item.quantity, 0);
-  const cartTotalCents = cartLines.reduce((total, line) => total + line.product.priceCents * line.item.quantity, 0);
+  const cartTotalCents = cartLines.reduce((total, line) => total + priceFor(line.product, line.variation) * line.item.quantity, 0);
   const cartActivityItems = useMemo(() => cartLines.map((line) => ({
     productId: line.product.id,
-    name: line.product.name,
+    variationId: line.variation?.id,
+    variationName: line.variation?.name,
+    name: line.variation ? `${line.product.name} - ${line.variation.name}` : line.product.name,
     quantity: line.item.quantity,
-    priceCents: line.product.priceCents
+    priceCents: priceFor(line.product, line.variation)
   })), [cartItems, productsById]);
   const hasPhoneCoupon = Boolean(currentUser?.phone);
   const couponDiscountCents = appliedCouponCode ? Math.round(cartTotalCents * appliedCouponDiscountRate) : 0;
@@ -764,7 +789,9 @@ export default function Page() {
   }, [authModal]);
 
   function openProduct(product: ApiProduct) {
+    const firstAvailableVariation = product.variations?.find((variation) => stockFor(product, variation) > 0) ?? product.variations?.[0];
     setSelectedProduct(product);
+    setSelectedVariationId(firstAvailableVariation?.id ?? null);
     setSelectedImageIndex(0);
     setProductQuantity(1);
     setCartMessage("");
@@ -775,20 +802,29 @@ export default function Page() {
       return;
     }
 
-    const maxQuantity = Math.max(1, availableForCart(selectedProduct));
+    const maxQuantity = Math.max(1, availableForCart(selectedProduct, selectedVariation));
     setProductQuantity(Math.min(maxQuantity, Math.max(1, nextQuantity)));
   }
 
-  function quantityInCart(productId: string) {
-    return cartItems.find((item) => item.productId === productId)?.quantity ?? 0;
+  function quantityInCart(productId: string, variationId?: string, sharedStock = false) {
+    if (sharedStock) {
+      return cartItems.filter((item) => item.productId === productId).reduce((total, item) => total + item.quantity, 0);
+    }
+
+    return cartItems.find((item) => item.productId === productId && item.variationId === variationId)?.quantity ?? 0;
   }
 
-  function availableForCart(product: ApiProduct) {
-    return stockFor(product) + quantityInCart(product.id);
+  function availableForCart(product: ApiProduct, variation?: ProductVariation) {
+    return stockFor(product, variation) + quantityInCart(product.id, variation?.id, Boolean(variation && variation.stock === undefined));
   }
 
-  function addToCart(product: ApiProduct, quantity = 1) {
-    const stock = availableForCart(product);
+  function addToCart(product: ApiProduct, quantity = 1, variation?: ProductVariation) {
+    if (product.variations?.length && !variation) {
+      setCartMessage("Escolha uma variacao.");
+      return false;
+    }
+
+    const stock = availableForCart(product, variation);
 
     if (!product.active || stock <= 0) {
       setCartMessage("Produto indisponivel.");
@@ -796,42 +832,45 @@ export default function Page() {
     }
 
     setCartItems((currentItems) => {
-      const existing = currentItems.find((item) => item.productId === product.id);
+      const existing = currentItems.find((item) => item.productId === product.id && item.variationId === variation?.id);
       const currentQuantity = existing?.quantity ?? 0;
       const nextQuantity = Math.min(stock, currentQuantity + quantity);
 
       if (existing) {
-        return currentItems.map((item) => item.productId === product.id ? { ...item, quantity: nextQuantity } : item);
+        return currentItems.map((item) => (
+          item.productId === product.id && item.variationId === variation?.id ? { ...item, quantity: nextQuantity } : item
+        ));
       }
 
-      return [...currentItems, { productId: product.id, quantity: Math.max(1, nextQuantity) }];
+      return [...currentItems, { productId: product.id, variationId: variation?.id, quantity: Math.max(1, nextQuantity) }];
     });
 
     setCartMessage("Produto adicionado ao carrinho.");
     return true;
   }
 
-  function updateCartQuantity(productId: string, nextQuantity: number) {
+  function updateCartQuantity(productId: string, nextQuantity: number, variationId?: string) {
     const product = productsById.get(productId);
 
     if (!product) {
       return;
     }
 
-    const stock = availableForCart(product);
+    const variation = variationId ? product.variations?.find((entry) => entry.id === variationId) : undefined;
+    const stock = availableForCart(product, variation);
 
     if (nextQuantity <= 0) {
-      setCartItems((currentItems) => currentItems.filter((item) => item.productId !== productId));
+      setCartItems((currentItems) => currentItems.filter((item) => !(item.productId === productId && item.variationId === variationId)));
       return;
     }
 
     setCartItems((currentItems) => currentItems.map((item) => (
-      item.productId === productId ? { ...item, quantity: Math.min(stock, nextQuantity) } : item
+      item.productId === productId && item.variationId === variationId ? { ...item, quantity: Math.min(stock, nextQuantity) } : item
     )));
   }
 
-  function removeFromCart(productId: string) {
-    setCartItems((currentItems) => currentItems.filter((item) => item.productId !== productId));
+  function removeFromCart(productId: string, variationId?: string) {
+    setCartItems((currentItems) => currentItems.filter((item) => !(item.productId === productId && item.variationId === variationId)));
   }
 
   function setSession(user: AuthUser, token: string) {
@@ -1012,13 +1051,18 @@ export default function Page() {
     await updateAccountPhone("");
   }
 
-  function checkoutProduct(product: ApiProduct, quantity: number) {
-    if (!product.active || availableForCart(product) <= 0) {
+  function checkoutProduct(product: ApiProduct, quantity: number, variation?: ProductVariation) {
+    if (product.variations?.length && !variation) {
+      setCartMessage("Escolha uma variacao.");
+      return;
+    }
+
+    if (!product.active || availableForCart(product, variation) <= 0) {
       setCartMessage("Produto indisponivel.");
       return;
     }
 
-    addToCart(product, quantity);
+    addToCart(product, quantity, variation);
     setSelectedProduct(null);
     setCartOpen(true);
     setCartMessage("Item adicionado. Finalize com Pix para ganhar Hellpoints.");
@@ -1056,9 +1100,11 @@ export default function Page() {
           couponCode: appliedCouponCode,
           items: cartLines.map((line) => ({
             productId: line.product.id,
-            name: line.product.name,
+            variationId: line.variation?.id,
+            variationName: line.variation?.name,
+            name: line.variation ? `${line.product.name} - ${line.variation.name}` : line.product.name,
             quantity: line.item.quantity,
-            priceCents: line.product.priceCents
+            priceCents: priceFor(line.product, line.variation)
           }))
         })
       });
@@ -1455,7 +1501,7 @@ export default function Page() {
             <div className="productModalInfo">
               <div className="productModalMeta">
                 <span>{categoriesById.get(selectedProduct.categoryId) ?? "Produto"}</span>
-                <strong>{formatPrice(selectedProduct)}</strong>
+                <strong>{formatCents(priceFor(selectedProduct, selectedVariation))}</strong>
               </div>
               <h2 id="product-modal-title">{selectedProduct.name}</h2>
               {selectedProduct.description && <p>{selectedProduct.description}</p>}
@@ -1466,19 +1512,32 @@ export default function Page() {
               </div>
               {selectedProduct.variations?.length ? (
                 <div className="productVariations">
-                  <strong>Variacoes</strong>
+                  <strong>Escolha a variacao</strong>
                   {selectedProduct.variations.map((variation) => (
-                    <span key={variation.id ?? variation.name}>
+                    <button
+                      key={variation.id ?? variation.name}
+                      type="button"
+                      className={variation.id === selectedVariationId ? "active" : ""}
+                      disabled={stockFor(selectedProduct, variation) <= 0}
+                      onClick={() => {
+                        setSelectedVariationId(variation.id ?? null);
+                        setProductQuantity(1);
+                        if (variation.photoUrl) {
+                          const imageIndex = productImages(selectedProduct).indexOf(variation.photoUrl);
+                          setSelectedImageIndex(imageIndex >= 0 ? imageIndex : selectedImageIndex);
+                        }
+                      }}
+                    >
                       {variation.photoUrl ? <img src={variation.photoUrl} alt="" /> : null}
                       {variation.name}
-                      <small>{formatVariationPrice(selectedProduct, variation)}{variation.stock !== undefined ? ` · ${variation.stock} un.` : ""}</small>
-                    </span>
+                      <small>{formatVariationPrice(selectedProduct, variation)} · {stockFor(selectedProduct, variation)} un.</small>
+                    </button>
                   ))}
                 </div>
               ) : null}
               <div className="stockRow">
-                <span>{stockLabel(selectedProduct)}</span>
-                <strong>{quantityInCart(selectedProduct.id)} no carrinho</strong>
+                <span>{stockLabel(selectedProduct, selectedVariation)}</span>
+                <strong>{quantityInCart(selectedProduct.id, selectedVariation?.id)} no carrinho</strong>
               </div>
               <div className="quantityControl" aria-label="Quantidade">
                 <button type="button" onClick={() => changeProductQuantity(productQuantity - 1)} aria-label="Diminuir quantidade">
@@ -1490,10 +1549,10 @@ export default function Page() {
                 </button>
               </div>
               <div className="productModalActions">
-                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct) <= 0} onClick={() => checkoutProduct(selectedProduct, productQuantity)}>
+                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct, selectedVariation) <= 0} onClick={() => checkoutProduct(selectedProduct, productQuantity, selectedVariation)}>
                   Comprar agora
                 </button>
-                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct) <= 0} onClick={() => addToCart(selectedProduct, productQuantity)}>
+                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct, selectedVariation) <= 0} onClick={() => addToCart(selectedProduct, productQuantity, selectedVariation)}>
                   Colocar no carrinho
                 </button>
               </div>
@@ -1574,22 +1633,23 @@ export default function Page() {
                 </div>
               )}
 
-              {cartLines.map(({ item, product }) => (
-                <article key={product.id} className="cartLine">
-                  <img src={productImages(product)[0]} alt={product.name} />
+              {cartLines.map(({ item, product, variation }) => (
+                <article key={`${product.id}-${variation?.id ?? "default"}`} className="cartLine">
+                  <img src={variation?.photoUrl ?? productImages(product)[0]} alt={variation ? `${product.name} ${variation.name}` : product.name} />
                   <div>
                     <span>{categoriesById.get(product.categoryId) ?? "Produto"}</span>
                     <strong>{product.name}</strong>
-                    <small>{formatCents(product.priceCents * item.quantity)}</small>
+                    {variation && <em>{variation.name}</em>}
+                    <small>{formatCents(priceFor(product, variation) * item.quantity)}</small>
                     <div className="cartQty">
-                      <button type="button" onClick={() => updateCartQuantity(product.id, item.quantity - 1)} aria-label="Diminuir item">
+                      <button type="button" onClick={() => updateCartQuantity(product.id, item.quantity - 1, variation?.id)} aria-label="Diminuir item">
                         <Minus size={15} strokeWidth={3} />
                       </button>
                       <span>{item.quantity}</span>
-                      <button type="button" onClick={() => updateCartQuantity(product.id, item.quantity + 1)} aria-label="Aumentar item">
+                      <button type="button" onClick={() => updateCartQuantity(product.id, item.quantity + 1, variation?.id)} aria-label="Aumentar item">
                         <Plus size={15} strokeWidth={3} />
                       </button>
-                      <button type="button" onClick={() => removeFromCart(product.id)} aria-label="Remover item">
+                      <button type="button" onClick={() => removeFromCart(product.id, variation?.id)} aria-label="Remover item">
                         <Trash2 size={15} strokeWidth={3} />
                       </button>
                     </div>

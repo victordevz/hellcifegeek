@@ -482,6 +482,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       const entry = item as Record<string, unknown>;
       return {
         productId: typeof entry.productId === "string" ? entry.productId : undefined,
+        variationId: typeof entry.variationId === "string" ? entry.variationId : undefined,
+        variationName: typeof entry.variationName === "string" && entry.variationName.trim() ? entry.variationName.trim() : undefined,
         name: typeof entry.name === "string" && entry.name.trim() ? entry.name.trim() : "Produto",
         quantity: Math.max(1, Math.floor(Number(entry.quantity ?? 1))),
         priceCents: Math.max(0, Math.floor(Number(entry.priceCents ?? 0)))
@@ -553,7 +555,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private ensureInventoryAvailable(data: Database, items: PartnerPurchaseItem[], excludedReservationId?: string) {
-    const reservedByProduct = this.reservedQuantitiesByProduct(data, excludedReservationId);
+    const reservedByItem = this.reservedQuantitiesByItem(data, excludedReservationId);
 
     for (const item of items) {
       if (!item.productId) {
@@ -566,7 +568,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
         throw new BadRequestException(`${item.name} não está disponível para venda`);
       }
 
-      const available = Math.max(0, Math.floor(Number(product.stock ?? 0)) - (reservedByProduct.get(item.productId) ?? 0));
+      const variation = item.variationId
+        ? product.variations?.find((entry) => entry.id === item.variationId)
+        : undefined;
+
+      if (item.variationId && !variation) {
+        throw new BadRequestException(`${item.name} não está disponível para venda`);
+      }
+
+      const baseStock = variation?.stock === undefined ? product.stock : variation.stock;
+      const available = Math.max(0, Math.floor(Number(baseStock ?? 0)) - (reservedByItem.get(this.inventoryStockKey(item, variation)) ?? 0));
 
       if (item.quantity > available) {
         throw new BadRequestException(`${item.name} está indisponível no momento`);
@@ -597,8 +608,8 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     ));
   }
 
-  private reservedQuantitiesByProduct(data: Database, excludedReservationId?: string) {
-    const reservedByProduct = new Map<string, number>();
+  private reservedQuantitiesByItem(data: Database, excludedReservationId?: string) {
+    const reservedByItem = new Map<string, number>();
     const now = Date.now();
 
     for (const reservation of data.inventoryReservations ?? []) {
@@ -615,11 +626,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
 
-        reservedByProduct.set(item.productId, (reservedByProduct.get(item.productId) ?? 0) + item.quantity);
+        const product = data.products.find((entry) => entry.id === item.productId);
+        const variation = item.variationId
+          ? product?.variations?.find((entry) => entry.id === item.variationId)
+          : undefined;
+        const key = this.inventoryStockKey(item, variation);
+        reservedByItem.set(key, (reservedByItem.get(key) ?? 0) + item.quantity);
       }
     }
 
-    return reservedByProduct;
+    return reservedByItem;
   }
 
   private cartReservationKey(userId: string) {
@@ -698,7 +714,16 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
       const product = data.products.find((entry) => entry.id === item.productId);
 
       if (product) {
-        product.stock = Math.max(0, Math.floor(Number(product.stock ?? 0)) - item.quantity);
+        const variation = item.variationId
+          ? product.variations?.find((entry) => entry.id === item.variationId)
+          : undefined;
+
+        if (variation && variation.stock !== undefined) {
+          variation.stock = Math.max(0, Math.floor(Number(variation.stock ?? 0)) - item.quantity);
+        } else {
+          product.stock = Math.max(0, Math.floor(Number(product.stock ?? 0)) - item.quantity);
+        }
+
         product.updatedAt = new Date().toISOString();
       }
     }
@@ -726,11 +751,27 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private itemKeys(items: PartnerPurchaseItem[]) {
-    return items.map((item) => (
-      item.productId
-        ? `product:${item.productId}`
-        : `name:${item.name.trim().toLowerCase()}`
-    ));
+    return items.map((item) => this.inventoryItemKey(item));
+  }
+
+  private inventoryItemKey(item: PartnerPurchaseItem) {
+    if (item.productId && item.variationId) {
+      return `product:${item.productId}:variation:${item.variationId}`;
+    }
+
+    if (item.productId) {
+      return `product:${item.productId}`;
+    }
+
+    return `name:${item.name.trim().toLowerCase()}`;
+  }
+
+  private inventoryStockKey(item: PartnerPurchaseItem, variation?: { id: string; stock?: number }) {
+    if (item.productId && variation?.stock !== undefined) {
+      return `product:${item.productId}:variation:${variation.id}`;
+    }
+
+    return this.inventoryItemKey({ ...item, variationId: undefined });
   }
 
   private normalizeProviderStatus(status: unknown): PaymentStatus {

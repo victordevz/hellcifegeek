@@ -19,8 +19,9 @@ export class ProductsService {
     const data = await this.store.read();
     const changed = this.expireStaleReservations(data);
     const reservedByProduct = this.reservedQuantitiesByProduct(data);
+    const reservedByItem = this.reservedQuantitiesByItem(data);
     const search = query.q?.trim().toLowerCase();
-    const products = data.products.map((product) => this.withStock(product, reservedByProduct.get(product.id) ?? 0)).filter((product) => {
+    const products = data.products.map((product) => this.withStock(product, reservedByProduct.get(product.id) ?? 0, reservedByItem)).filter((product) => {
       if (query.categoryId && product.categoryId !== query.categoryId) {
         return false;
       }
@@ -55,6 +56,7 @@ export class ProductsService {
     const data = await this.store.read();
     const changed = this.expireStaleReservations(data);
     const reservedByProduct = this.reservedQuantitiesByProduct(data);
+    const reservedByItem = this.reservedQuantitiesByItem(data);
     const product = data.products.find((item) => item.id === id);
 
     if (!product) {
@@ -65,7 +67,7 @@ export class ProductsService {
       await this.store.write(data);
     }
 
-    return this.withStock(product, reservedByProduct.get(product.id) ?? 0);
+    return this.withStock(product, reservedByProduct.get(product.id) ?? 0, reservedByItem);
   }
 
   async create(body: Record<string, unknown>) {
@@ -158,12 +160,21 @@ export class ProductsService {
     return { removed: true };
   }
 
-  private withStock(product: Product, reservedQuantity = 0) {
+  private withStock(product: Product, reservedQuantity = 0, reservedByItem = new Map<string, number>()) {
+    const variations = Array.isArray(product.variations)
+      ? product.variations.map((variation) => ({
+        ...variation,
+        stock: variation.stock === undefined
+          ? variation.stock
+          : Math.max(0, Math.floor(Number(variation.stock ?? 0)) - (reservedByItem.get(this.inventoryItemKey(product.id, variation.id)) ?? 0))
+      }))
+      : [];
+
     return {
       ...product,
       stock: Math.max(0, Math.floor(Number(product.stock ?? 0)) - reservedQuantity),
       photoUrls: product.photoUrls?.length ? product.photoUrls : [product.photoUrl].filter(Boolean),
-      variations: Array.isArray(product.variations) ? product.variations : []
+      variations
     };
   }
 
@@ -191,7 +202,12 @@ export class ProductsService {
       }
 
       for (const item of reservation.items) {
-        if (!item.productId) {
+        const product = data.products.find((entry) => entry.id === item.productId);
+        const variation = item.variationId
+          ? product?.variations?.find((entry) => entry.id === item.variationId)
+          : undefined;
+
+        if (!item.productId || variation?.stock !== undefined) {
           continue;
         }
 
@@ -200,6 +216,37 @@ export class ProductsService {
     }
 
     return reservedByProduct;
+  }
+
+  private reservedQuantitiesByItem(data: Database) {
+    const reservedByItem = new Map<string, number>();
+    const now = Date.now();
+
+    for (const reservation of data.inventoryReservations ?? []) {
+      if (reservation.status !== "active" || new Date(reservation.expiresAt).getTime() <= now) {
+        continue;
+      }
+
+      for (const item of reservation.items) {
+        const product = data.products.find((entry) => entry.id === item.productId);
+        const variation = item.variationId
+          ? product?.variations?.find((entry) => entry.id === item.variationId)
+          : undefined;
+
+        if (!item.productId || !item.variationId || variation?.stock === undefined) {
+          continue;
+        }
+
+        const key = this.inventoryItemKey(item.productId, item.variationId);
+        reservedByItem.set(key, (reservedByItem.get(key) ?? 0) + item.quantity);
+      }
+    }
+
+    return reservedByItem;
+  }
+
+  private inventoryItemKey(productId: string, variationId: string) {
+    return `product:${productId}:variation:${variationId}`;
   }
 
   private normalizePhotoUrls(photoUrlsInput: unknown, fallbackPhotoUrl: unknown) {

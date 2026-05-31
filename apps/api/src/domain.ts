@@ -58,6 +58,8 @@ export type ProductVariation = {
 
 export type PartnerPurchaseItem = {
   productId?: string;
+  variationId?: string;
+  variationName?: string;
   name: string;
   quantity: number;
   priceCents: number;

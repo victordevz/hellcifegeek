@@ -1360,7 +1360,7 @@ h2 {
 }
 
 .productVariations strong,
-.productVariations span {
+.productVariations button {
   font-family: var(--font-space), monospace;
   font-size: 12px;
   font-weight: 700;
@@ -1372,14 +1372,25 @@ h2 {
   width: 100%;
 }
 
-.productVariations span {
+.productVariations button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: 2px solid var(--black);
   border-radius: 999px;
   background: var(--white);
+  color: var(--black);
   padding: 7px 10px;
+}
+
+.productVariations button.active {
+  background: var(--black);
+  color: var(--white);
+}
+
+.productVariations button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .productVariations img {
@@ -1393,6 +1404,10 @@ h2 {
 .productVariations small {
   color: var(--red);
   font: inherit;
+}
+
+.productVariations button.active small {
+  color: var(--red);
 }
 
 .productModalInfo h2,
@@ -1934,6 +1949,15 @@ h2 {
 .cartLine small {
   color: var(--red);
   font-size: 12px;
+}
+
+.cartLine em {
+  font-family: var(--font-space), monospace;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .cartQty {
