@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { Database, Product } from "../domain";
+import { Database, Product, ProductVariation } from "../domain";
 import { JsonStoreService } from "../storage/json-store.service";
 import { booleanValue, optionalString, requiredNumber, requiredString, stringList, urlList } from "../utils";
 
@@ -93,6 +93,7 @@ export class ProductsService {
       categoryId,
       active: booleanValue(body.active, true),
       recommended: booleanValue(body.recommended, false),
+      variations: this.normalizeVariations(body.variations),
       createdAt: now,
       updatedAt: now
     };
@@ -131,6 +132,7 @@ export class ProductsService {
     product.tags = body.tags === undefined ? product.tags : stringList(body.tags);
     product.active = booleanValue(body.active, product.active);
     product.recommended = booleanValue(body.recommended, Boolean(product.recommended));
+    product.variations = body.variations === undefined ? product.variations : this.normalizeVariations(body.variations);
     product.priceCents = body.price === undefined ? product.priceCents : Math.round(requiredNumber(body.price, "price") * 100);
     product.stock = body.stock === undefined ? Math.max(0, Math.floor(Number(product.stock ?? 0))) : Math.max(0, Math.floor(requiredNumber(body.stock, "stock")));
     product.updatedAt = new Date().toISOString();
@@ -160,7 +162,8 @@ export class ProductsService {
     return {
       ...product,
       stock: Math.max(0, Math.floor(Number(product.stock ?? 0)) - reservedQuantity),
-      photoUrls: product.photoUrls?.length ? product.photoUrls : [product.photoUrl].filter(Boolean)
+      photoUrls: product.photoUrls?.length ? product.photoUrls : [product.photoUrl].filter(Boolean),
+      variations: Array.isArray(product.variations) ? product.variations : []
     };
   }
 
@@ -204,5 +207,39 @@ export class ProductsService {
     const fallback = requiredString(fallbackPhotoUrl, "photoUrl");
     const urls = photoUrls.length ? photoUrls : [fallback];
     return Array.from(new Set(urls));
+  }
+
+  private normalizeVariations(value: unknown): ProductVariation[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const variations: ProductVariation[] = [];
+
+    for (const item of value) {
+      const entry = typeof item === "object" && item !== null ? item as Record<string, unknown> : {};
+      const name = optionalString(entry.name);
+
+      if (!name) {
+        continue;
+      }
+
+      const price = entry.price === undefined || entry.price === "" || entry.price === null
+        ? undefined
+        : Math.round(requiredNumber(entry.price, "variation.price") * 100);
+      const stock = entry.stock === undefined || entry.stock === "" || entry.stock === null
+        ? undefined
+        : Math.max(0, Math.floor(requiredNumber(entry.stock, "variation.stock")));
+
+      variations.push({
+        id: optionalString(entry.id) ?? crypto.randomUUID(),
+        name,
+        priceCents: price,
+        stock,
+        photoUrl: optionalString(entry.photoUrl)
+      });
+    }
+
+    return variations;
   }
 }

@@ -39,6 +39,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
 const productsPerPage = 6;
 const cartStorageKey = "hellcifegeek.cart";
 const pendingPixStorageKey = "hellcifegeek.pendingPix";
+const newProductsPopupStorageKey = "hellcifegeek.newProductsPopup.2026-05";
 const phoneCouponCode = "CELULAR5";
 const phoneCouponDiscountRate = 0.05;
 
@@ -60,6 +61,15 @@ type ApiProduct = {
   categoryId: string;
   active: boolean;
   recommended?: boolean;
+  variations?: ProductVariation[];
+};
+
+type ProductVariation = {
+  id?: string;
+  name: string;
+  priceCents?: number;
+  stock?: number;
+  photoUrl?: string;
 };
 
 type AuthUser = {
@@ -105,6 +115,10 @@ function formatCents(value: number) {
     style: "currency",
     currency: "BRL"
   }).format(value / 100);
+}
+
+function formatVariationPrice(product: ApiProduct, variation: ProductVariation) {
+  return formatCents(variation.priceCents ?? product.priceCents);
 }
 
 function isPendingPixExpired(payment: PixPayment | null) {
@@ -270,6 +284,8 @@ export default function Page() {
   const [raffleModalOpen, setRaffleModalOpen] = useState(false);
   const [raffleMessage, setRaffleMessage] = useState("");
   const [isBuyingRaffleTicket, setIsBuyingRaffleTicket] = useState(false);
+  const [newProductsTeaserVisible, setNewProductsTeaserVisible] = useState(false);
+  const [newProductsPopupOpen, setNewProductsPopupOpen] = useState(false);
   const loginModalRef = useRef<HTMLDivElement>(null);
   const signupModalRef = useRef<HTMLDivElement>(null);
   const categoriesById = useMemo(() => {
@@ -341,9 +357,40 @@ export default function Page() {
     }
   }, []);
 
+  useEffect(() => {
+    const dismissed = localStorage.getItem(newProductsPopupStorageKey);
+
+    if (dismissed) {
+      return;
+    }
+
+    const popupTimer = window.setTimeout(() => {
+      setNewProductsTeaserVisible(true);
+    }, 900);
+
+    return () => window.clearTimeout(popupTimer);
+  }, []);
+
   function selectCategory(category: string) {
     setActiveCategory(category);
     setVisibleCount(productsPerPage);
+  }
+
+  function dismissNewProductsPopup() {
+    localStorage.setItem(newProductsPopupStorageKey, "dismissed");
+    setNewProductsTeaserVisible(false);
+    setNewProductsPopupOpen(false);
+  }
+
+  function openNewProductsPopup() {
+    setNewProductsTeaserVisible(false);
+    setNewProductsPopupOpen(true);
+  }
+
+  function viewNewProducts() {
+    dismissNewProductsPopup();
+    selectCategory("All");
+    window.setTimeout(() => scrollToSection("work"), 0);
   }
 
   function scrollToSection(targetId: string) {
@@ -1252,6 +1299,7 @@ export default function Page() {
                   {product.tags.map((tag) => (
                     <span key={tag}>{tag}</span>
                   ))}
+                  {product.variations?.length ? <span>{product.variations.length} variacoes</span> : null}
                 </div>
                 <button type="button" className="productOpen" onClick={(event) => {
                   event.stopPropagation();
@@ -1340,6 +1388,40 @@ export default function Page() {
         </div>
       </footer>
 
+      {newProductsTeaserVisible && (
+        <button type="button" className="newProductsTeaser" onClick={openNewProductsPopup} aria-haspopup="dialog">
+          <span>?</span>
+          <strong>tem coisa nova</strong>
+        </button>
+      )}
+
+      {newProductsPopupOpen && (
+        <div className="newProductsPopupOverlay" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            dismissNewProductsPopup();
+          }
+        }}>
+          <section className="newProductsPopup" role="dialog" aria-modal="true" aria-labelledby="new-products-popup-title">
+            <button type="button" className="closeModal newProductsPopupClose" onClick={dismissNewProductsPopup} aria-label="Fechar novidades">
+              <X size={22} strokeWidth={3} />
+            </button>
+            <div className="newProductsPopupArt" aria-hidden="true">
+              <span>abre ai</span>
+              <strong>?</strong>
+            </div>
+            <div className="newProductsPopupContent">
+              <span>novo drop liberado</span>
+              <h2 id="new-products-popup-title">Chegou coisa nova na loja</h2>
+              <p>Tem item novo no catalogo da Hellcife Geek. Entra no drop antes que os favoritos sumam.</p>
+              <div className="newProductsPopupActions">
+                <button type="button" onClick={viewNewProducts}>Abrir o drop</button>
+                <button type="button" onClick={dismissNewProductsPopup}>Agora nao</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {selectedProduct && (
         <div className="productModalOverlay" role="presentation" onPointerDown={(event) => {
           if (event.target === event.currentTarget) {
@@ -1382,6 +1464,18 @@ export default function Page() {
                   <span key={tag}>{tag}</span>
                 ))}
               </div>
+              {selectedProduct.variations?.length ? (
+                <div className="productVariations">
+                  <strong>Variacoes</strong>
+                  {selectedProduct.variations.map((variation) => (
+                    <span key={variation.id ?? variation.name}>
+                      {variation.photoUrl ? <img src={variation.photoUrl} alt="" /> : null}
+                      {variation.name}
+                      <small>{formatVariationPrice(selectedProduct, variation)}{variation.stock !== undefined ? ` · ${variation.stock} un.` : ""}</small>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="stockRow">
                 <span>{stockLabel(selectedProduct)}</span>
                 <strong>{quantityInCart(selectedProduct.id)} no carrinho</strong>

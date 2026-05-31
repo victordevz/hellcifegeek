@@ -43,8 +43,17 @@ export type Product = {
   categoryId: string;
   active: boolean;
   recommended: boolean;
+  variations?: ProductVariation[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type ProductVariation = {
+  id: string;
+  name: string;
+  priceCents?: number;
+  stock?: number;
+  photoUrl?: string;
 };
 
 export type PartnerPurchaseItem = {

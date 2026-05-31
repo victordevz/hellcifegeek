@@ -2,8 +2,16 @@
 
 import type { ChangeEvent, ClipboardEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
+const adminSections = ["produtos", "categorias", "sorteios", "vendas", "usuarios", "catalogo"] as const;
+
+type AdminSection = typeof adminSections[number];
+
+type AdminPageProps = {
+  section?: string;
+};
 
 type Category = {
   id: string;
@@ -25,6 +33,15 @@ type AdminProduct = {
   categoryId: string;
   active: boolean;
   recommended?: boolean;
+  variations?: ProductVariation[];
+};
+
+type ProductVariation = {
+  id?: string;
+  name: string;
+  priceCents?: number;
+  stock?: number;
+  photoUrl?: string;
 };
 
 type StoredUser = {
@@ -117,6 +134,7 @@ type ProductForm = {
   description: string;
   price: string;
   stock: string;
+  variations: ProductVariationForm[];
   photoUrls: string[];
   tags: string;
   categoryId: string;
@@ -124,11 +142,20 @@ type ProductForm = {
   recommended: boolean;
 };
 
+type ProductVariationForm = {
+  id?: string;
+  name: string;
+  price: string;
+  stock: string;
+  photoUrl: string;
+};
+
 const emptyProductForm: ProductForm = {
   name: "",
   description: "",
   price: "",
   stock: "0",
+  variations: [],
   photoUrls: [],
   tags: "",
   categoryId: "",
@@ -145,6 +172,14 @@ function formatPrice(product: AdminProduct) {
 
 function priceToInput(product: AdminProduct) {
   return String(product.priceCents / 100).replace(".", ",");
+}
+
+function centsToInput(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "";
+  }
+
+  return String(value / 100).replace(".", ",");
 }
 
 function normalizePrice(value: string) {
@@ -166,7 +201,36 @@ function formatCents(value: unknown) {
   }).format(Math.max(0, Math.floor(Number(value ?? 0))) / 100);
 }
 
-export default function AdminPage() {
+function variationSummary(product: AdminProduct) {
+  const variations = product.variations ?? [];
+
+  if (variations.length === 0) {
+    return "";
+  }
+
+  return variations.map((variation) => variation.name).join(", ");
+}
+
+function normalizeAdminSection(section?: string): AdminSection {
+  return adminSections.includes(section as AdminSection) ? section as AdminSection : "produtos";
+}
+
+function adminSectionTitle(section: AdminSection) {
+  const titles: Record<AdminSection, string> = {
+    produtos: "Produtos",
+    categorias: "Categorias",
+    sorteios: "Sorteios",
+    vendas: "Vendas",
+    usuarios: "Usuarios",
+    catalogo: "Catalogo"
+  };
+
+  return titles[section];
+}
+
+export default function AdminPage({ section }: AdminPageProps) {
+  const router = useRouter();
+  const currentSection = normalizeAdminSection(section);
   const [email, setEmail] = useState("admin@hellcifegeek.com.br");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
@@ -285,6 +349,24 @@ export default function AdminPage() {
     setMessage("Admin conectado.");
     void loadAdminData(storedToken);
   }, []);
+
+  useEffect(() => {
+    if (currentSection !== "produtos") {
+      return;
+    }
+
+    const draft = sessionStorage.getItem("hellcifegeek.editProduct");
+
+    if (!draft) {
+      return;
+    }
+
+    try {
+      setProductForm(JSON.parse(draft) as ProductForm);
+    } catch {
+      sessionStorage.removeItem("hellcifegeek.editProduct");
+    }
+  }, [currentSection]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -435,26 +517,61 @@ export default function AdminPage() {
   }
 
   function editProduct(product: AdminProduct) {
-    setProductForm({
+    const nextForm = {
       id: product.id,
       name: product.name,
       description: product.description ?? "",
       price: priceToInput(product),
       stock: String(product.stock ?? 0),
+      variations: (product.variations ?? []).map((variation) => ({
+        id: variation.id,
+        name: variation.name,
+        price: centsToInput(variation.priceCents),
+        stock: variation.stock === undefined ? "" : String(variation.stock),
+        photoUrl: variation.photoUrl ?? ""
+      })),
       photoUrls: product.photoUrls?.length ? product.photoUrls : [product.photoUrl].filter(Boolean),
       tags: tagsToText(product.tags),
       categoryId: product.categoryId,
       active: product.active,
       recommended: Boolean(product.recommended)
-    });
+    };
+
+    setProductForm(nextForm);
+    sessionStorage.setItem("hellcifegeek.editProduct", JSON.stringify(nextForm));
+    router.push("/admin/produtos");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function resetProductForm() {
+    sessionStorage.removeItem("hellcifegeek.editProduct");
     setProductForm({
       ...emptyProductForm,
       categoryId: categories[0]?.id ?? ""
     });
+  }
+
+  function addProductVariation() {
+    setProductForm((current) => ({
+      ...current,
+      variations: [...current.variations, { name: "", price: "", stock: "", photoUrl: "" }]
+    }));
+  }
+
+  function updateProductVariation(index: number, field: keyof ProductVariationForm, value: string) {
+    setProductForm((current) => ({
+      ...current,
+      variations: current.variations.map((variation, variationIndex) => (
+        variationIndex === index ? { ...variation, [field]: value } : variation
+      ))
+    }));
+  }
+
+  function removeProductVariation(index: number) {
+    setProductForm((current) => ({
+      ...current,
+      variations: current.variations.filter((_, variationIndex) => variationIndex !== index)
+    }));
   }
 
   async function saveProduct(event: FormEvent<HTMLFormElement>) {
@@ -476,6 +593,15 @@ export default function AdminPage() {
       description: productForm.description,
       price: normalizePrice(productForm.price),
       stock: Number(productForm.stock),
+      variations: productForm.variations
+        .map((variation) => ({
+          id: variation.id,
+          name: variation.name.trim(),
+          price: variation.price.trim() ? normalizePrice(variation.price) : undefined,
+          stock: variation.stock.trim() ? Number(variation.stock) : undefined,
+          photoUrl: variation.photoUrl.trim() || undefined
+        }))
+        .filter((variation) => variation.name),
       photoUrl: productForm.photoUrls[0],
       photoUrls: productForm.photoUrls,
       tags: productForm.tags,
@@ -496,6 +622,7 @@ export default function AdminPage() {
     }
 
     setMessage(productForm.id ? "Produto atualizado." : "Produto criado.");
+    sessionStorage.removeItem("hellcifegeek.editProduct");
     resetProductForm();
     await loadProducts();
   }
@@ -658,12 +785,12 @@ export default function AdminPage() {
       <aside className="adminSidebar">
         <a className="adminBrand" href="/">Hellcife Geek</a>
         <nav>
-          <a href="#produtos">Produtos</a>
-          <a href="#categorias">Categorias</a>
-          <a href="#sorteios">Sorteios</a>
-          <a href="#vendas">Vendas</a>
-          <a href="#usuarios">Usuarios</a>
-          <a href="#lista">Catalogo</a>
+          <a className={currentSection === "produtos" ? "active" : ""} href="/admin/produtos">Produtos</a>
+          <a className={currentSection === "categorias" ? "active" : ""} href="/admin/categorias">Categorias</a>
+          <a className={currentSection === "sorteios" ? "active" : ""} href="/admin/sorteios">Sorteios</a>
+          <a className={currentSection === "vendas" ? "active" : ""} href="/admin/vendas">Vendas</a>
+          <a className={currentSection === "usuarios" ? "active" : ""} href="/admin/usuarios">Usuarios</a>
+          <a className={currentSection === "catalogo" ? "active" : ""} href="/admin/catalogo">Catalogo</a>
         </nav>
         <button type="button" onClick={logout}>Sair</button>
       </aside>
@@ -672,7 +799,7 @@ export default function AdminPage() {
         <header className="adminTopbar">
           <div>
             <span>Painel administrativo</span>
-            <h1>Catalogo</h1>
+            <h1>{adminSectionTitle(currentSection)}</h1>
           </div>
           <div className="adminStats">
             <strong>{products.length}<span>Produtos</span></strong>
@@ -688,7 +815,9 @@ export default function AdminPage() {
 
         {message && <p className="adminNotice">{message}</p>}
 
+        {(currentSection === "produtos" || currentSection === "categorias") && (
         <div className="adminGrid">
+          {currentSection === "produtos" && (
           <section id="produtos" className="adminCard">
             <div className="adminCardHeader">
               <div>
@@ -720,6 +849,45 @@ export default function AdminPage() {
                 Estoque
                 <input value={productForm.stock} onChange={(event) => setProductForm((current) => ({ ...current, stock: event.target.value }))} placeholder="0" inputMode="numeric" min="0" type="number" required />
               </label>
+              <div className="variationEditor full">
+                <div className="variationEditorHead">
+                  <div>
+                    <span>Variacoes</span>
+                    <strong>Tamanho, cor, modelo ou outra opcao</strong>
+                  </div>
+                  <button type="button" onClick={addProductVariation}>Adicionar variacao</button>
+                </div>
+                {productForm.variations.length > 0 && (
+                  <div className="variationRows">
+                    {productForm.variations.map((variation, index) => (
+                      <div className="variationRow" key={variation.id ?? index}>
+                        <label>
+                          Nome
+                          <input value={variation.name} onChange={(event) => updateProductVariation(index, "name", event.target.value)} placeholder="Ex: Versao A, P, Azul" />
+                        </label>
+                        <label>
+                          Preco opcional
+                          <input value={variation.price} onChange={(event) => updateProductVariation(index, "price", event.target.value)} placeholder="164,99" inputMode="decimal" />
+                        </label>
+                        <label>
+                          Estoque opcional
+                          <input value={variation.stock} onChange={(event) => updateProductVariation(index, "stock", event.target.value)} placeholder="0" inputMode="numeric" min="0" type="number" />
+                        </label>
+                        <label>
+                          Foto opcional
+                          <select value={variation.photoUrl} onChange={(event) => updateProductVariation(index, "photoUrl", event.target.value)}>
+                            <option value="">Usar foto principal</option>
+                            {productForm.photoUrls.map((url, photoIndex) => (
+                              <option key={url} value={url}>Foto {photoIndex + 1}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <button type="button" className="danger" onClick={() => removeProductVariation(index)}>Remover</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <label>
                 Tags
                 <input value={productForm.tags} onChange={(event) => setProductForm((current) => ({ ...current, tags: event.target.value }))} placeholder="action figure, japao, raro" />
@@ -772,7 +940,9 @@ export default function AdminPage() {
               </div>
             </form>
           </section>
+          )}
 
+          {currentSection === "categorias" && (
           <section id="categorias" className="adminCard">
             <div className="adminCardHeader">
               <div>
@@ -804,8 +974,11 @@ export default function AdminPage() {
               {categories.length === 0 && <p>Nenhuma categoria cadastrada.</p>}
             </div>
           </section>
+          )}
         </div>
+        )}
 
+        {currentSection === "sorteios" && (
         <section id="sorteios" className="adminCard">
           <div className="adminCardHeader">
             <div>
@@ -850,7 +1023,9 @@ export default function AdminPage() {
             {(launchRaffle?.participants.length ?? 0) === 0 && <p className="adminEmpty">Nenhum ticket colocado neste sorteio ainda.</p>}
           </div>
         </section>
+        )}
 
+        {currentSection === "vendas" && (
         <section id="vendas" className="adminCard">
           <div className="adminCardHeader">
             <div>
@@ -933,7 +1108,9 @@ export default function AdminPage() {
             {(salesReport?.sales.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma venda registrada.</p>}
           </div>
         </section>
+        )}
 
+        {currentSection === "catalogo" && (
         <section id="lista" className="adminCard">
           <div className="adminCardHeader">
             <div>
@@ -950,6 +1127,7 @@ export default function AdminPage() {
                 <div>
                   <strong>{product.name}</strong>
                   <span>{categoriesById.get(product.categoryId) ?? "Sem categoria"} · {formatPrice(product)} · {product.stock} un.</span>
+                  {product.variations?.length ? <small>Variacoes: {variationSummary(product)}</small> : null}
                   <small>{product.tags.join(", ") || "Sem tags"}</small>
                 </div>
                 <div className="adminStatus">
@@ -967,7 +1145,9 @@ export default function AdminPage() {
             {products.length === 0 && <p className="adminEmpty">Nenhum produto cadastrado ainda.</p>}
           </div>
         </section>
+        )}
 
+        {currentSection === "usuarios" && (
         <section id="usuarios" className="adminCard">
           <div className="adminCardHeader">
             <div>
@@ -1013,6 +1193,7 @@ export default function AdminPage() {
             {users.length === 0 && <p className="adminEmpty">Nenhum usuario cadastrado ainda.</p>}
           </div>
         </section>
+        )}
       </section>
     </main>
   );
