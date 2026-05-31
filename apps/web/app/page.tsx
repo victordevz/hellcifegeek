@@ -36,10 +36,10 @@ const navItems = [
 ];
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
-const productsPerPage = 6;
 const cartStorageKey = "hellcifegeek.cart";
 const pendingPixStorageKey = "hellcifegeek.pendingPix";
 const newProductsPopupStorageKey = "hellcifegeek.newProductsPopup.2026-05";
+const stockInquiryWhatsApp = "5581981472018";
 const phoneCouponCode = "CELULAR5";
 const phoneCouponDiscountRate = 0.05;
 
@@ -171,6 +171,13 @@ function stockLabel(product: ApiProduct, variation?: ProductVariation) {
   return stock <= 5 ? "Estoque limitado" : `${stock} em estoque`;
 }
 
+function stockInquiryUrl(product: ApiProduct, variation?: ProductVariation) {
+  const itemName = variation ? `${product.name} - ${variation.name}` : product.name;
+  const text = encodeURIComponent(`Oi! Quero saber quando vai ter disponibilidade de estoque para ${itemName}.`);
+
+  return `https://wa.me/${stockInquiryWhatsApp}?text=${text}`;
+}
+
 function ChromeMark() {
   return (
     <svg className="brandIcon googleMark" viewBox="0 0 24 24" aria-hidden="true">
@@ -270,7 +277,6 @@ function HeroHeadline() {
 export default function Page() {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("All");
-  const [visibleCount, setVisibleCount] = useState(productsPerPage);
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(true);
@@ -315,18 +321,27 @@ export default function Page() {
     return ["All", "Recommended", ...categories.map((category) => category.name)];
   }, [categories]);
   const visibleProducts = useMemo(() => {
+    let filteredProducts: ApiProduct[];
+
     if (activeCategory === "All") {
-      return products;
+      filteredProducts = products;
+    } else if (activeCategory === "Recommended") {
+      filteredProducts = products.filter((product) => product.recommended);
+    } else {
+      filteredProducts = products.filter((product) => categoriesById.get(product.categoryId) === activeCategory);
     }
 
-    if (activeCategory === "Recommended") {
-      return products.filter((product) => product.recommended);
-    }
+    return [...filteredProducts].sort((left, right) => {
+      const leftAvailable = left.active && stockFor(left) > 0;
+      const rightAvailable = right.active && stockFor(right) > 0;
 
-    return products.filter((product) => categoriesById.get(product.categoryId) === activeCategory);
+      if (leftAvailable === rightAvailable) {
+        return 0;
+      }
+
+      return leftAvailable ? -1 : 1;
+    });
   }, [activeCategory, categoriesById, products]);
-  const displayedProducts = visibleProducts.slice(0, visibleCount);
-  const canShowMore = visibleCount < visibleProducts.length;
   const productsById = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
   }, [products]);
@@ -398,7 +413,6 @@ export default function Page() {
 
   function selectCategory(category: string) {
     setActiveCategory(category);
-    setVisibleCount(productsPerPage);
   }
 
   function dismissNewProductsPopup() {
@@ -1317,7 +1331,7 @@ export default function Page() {
         </div>
 
         <div className="productGrid">
-          {displayedProducts.map((product) => (
+          {visibleProducts.map((product) => (
             <article
               key={product.id}
               className={`productCard ${stockFor(product) <= 0 || !product.active ? "isSoldOut" : ""}`}
@@ -1366,18 +1380,11 @@ export default function Page() {
           </div>
         )}
 
-        {!isProductsLoading && displayedProducts.length === 0 && (
+        {!isProductsLoading && visibleProducts.length === 0 && (
           <div className="emptyProducts">
             <strong>{productsError || "Nenhum produto cadastrado ainda."}</strong>
             <span>Quando voce criar produtos no admin, eles aparecem aqui automaticamente.</span>
           </div>
-        )}
-
-        {canShowMore && (
-          <button className="loadMore" onClick={() => setVisibleCount((current) => current + productsPerPage)}>
-            Ver mais
-            <span>{visibleProducts.length - visibleCount} restantes</span>
-          </button>
         )}
       </section>
 
@@ -1517,8 +1524,7 @@ export default function Page() {
                     <button
                       key={variation.id ?? variation.name}
                       type="button"
-                      className={variation.id === selectedVariationId ? "active" : ""}
-                      disabled={stockFor(selectedProduct, variation) <= 0}
+                      className={`${variation.id === selectedVariationId ? "active" : ""} ${stockFor(selectedProduct, variation) <= 0 ? "isSoldOut" : ""}`}
                       onClick={() => {
                         setSelectedVariationId(variation.id ?? null);
                         setProductQuantity(1);
@@ -1549,12 +1555,20 @@ export default function Page() {
                 </button>
               </div>
               <div className="productModalActions">
-                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct, selectedVariation) <= 0} onClick={() => checkoutProduct(selectedProduct, productQuantity, selectedVariation)}>
-                  Comprar agora
-                </button>
-                <button type="button" disabled={!selectedProduct.active || availableForCart(selectedProduct, selectedVariation) <= 0} onClick={() => addToCart(selectedProduct, productQuantity, selectedVariation)}>
-                  Colocar no carrinho
-                </button>
+                {selectedProduct.active && availableForCart(selectedProduct, selectedVariation) > 0 ? (
+                  <>
+                    <button type="button" onClick={() => checkoutProduct(selectedProduct, productQuantity, selectedVariation)}>
+                      Comprar agora
+                    </button>
+                    <button type="button" onClick={() => addToCart(selectedProduct, productQuantity, selectedVariation)}>
+                      Colocar no carrinho
+                    </button>
+                  </>
+                ) : (
+                  <a href={stockInquiryUrl(selectedProduct, selectedVariation)} target="_blank" rel="noopener noreferrer">
+                    Perguntar disponibilidade no WhatsApp
+                  </a>
+                )}
               </div>
             </div>
           </section>

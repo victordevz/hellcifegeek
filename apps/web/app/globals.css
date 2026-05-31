@@ -1388,8 +1388,7 @@ h2 {
   color: var(--white);
 }
 
-.productVariations button:disabled {
-  cursor: not-allowed;
+.productVariations button.isSoldOut {
   opacity: 0.45;
 }
 
@@ -1471,7 +1470,10 @@ h2 {
 }
 
 .productModalActions button,
+.productModalActions a,
 .cartFooter button {
+  display: grid;
+  place-items: center;
   min-height: 58px;
   border: 2px solid var(--black);
   border-radius: 999px;
@@ -1485,15 +1487,23 @@ h2 {
 }
 
 .productModalActions button:last-child,
+.productModalActions a,
 .cartFooter button:last-of-type {
   background: var(--white);
   color: var(--black);
 }
 
 .productModalActions button:hover,
+.productModalActions a:hover,
 .cartFooter button:hover {
   color: var(--red);
   transform: translateX(4px) scale(1.04);
+}
+
+.productModalActions a {
+  grid-column: 1 / -1;
+  text-align: center;
+  text-decoration: none;
 }
 
 .productModalActions button:disabled {
