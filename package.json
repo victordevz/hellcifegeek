@@ -13,6 +13,7 @@
     "start": "npm run start -w @hellcifegeek/web",
     "start:api": "npm run start -w @hellcifegeek/api",
     "images:cache": "npm run images:cache -w @hellcifegeek/api",
+    "images:normalize": "npm run images:normalize -w @hellcifegeek/api",
     "typecheck": "npm run typecheck -w @hellcifegeek/web",
     "typecheck:api": "npm run typecheck -w @hellcifegeek/api",
     "test:api": "npm test -w @hellcifegeek/api"

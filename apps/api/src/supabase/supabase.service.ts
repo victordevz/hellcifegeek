@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 type UploadInput = {
   fileName?: string;
@@ -8,6 +9,8 @@ type UploadInput = {
 };
 
 export const PRODUCT_IMAGE_CACHE_SECONDS = 60 * 60 * 24 * 365;
+export const PRODUCT_IMAGE_MAX_DIMENSION = 1600;
+export const PRODUCT_IMAGE_WEBP_QUALITY = 82;
 
 @Injectable()
 export class SupabaseService {
@@ -40,14 +43,29 @@ export class SupabaseService {
 
   async uploadProductImage(input: UploadInput) {
     const client = this.requireClient();
-    const contentType = input.contentType?.trim() || "image/png";
     const base64 = this.extractBase64(input.base64);
-    const extension = this.extensionFor(input.fileName, contentType);
-    const path = `products/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
     const bytes = Buffer.from(base64, "base64");
+    let optimizedImage: Buffer;
 
-    const { error } = await client.storage.from(this.bucket).upload(path, bytes, {
-      contentType,
+    try {
+      optimizedImage = await sharp(bytes)
+        .rotate()
+        .resize({
+          width: PRODUCT_IMAGE_MAX_DIMENSION,
+          height: PRODUCT_IMAGE_MAX_DIMENSION,
+          fit: "inside",
+          withoutEnlargement: true
+        })
+        .webp({ quality: PRODUCT_IMAGE_WEBP_QUALITY, effort: 4 })
+        .toBuffer();
+    } catch {
+      throw new BadRequestException("Imagem invalida ou corrompida.");
+    }
+
+    const path = `products/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.webp`;
+
+    const { error } = await client.storage.from(this.bucket).upload(path, optimizedImage, {
+      contentType: "image/webp",
       // Product images receive a unique UUID path and are never overwritten, so
       // browsers and the Supabase CDN can safely retain them for a long time.
       cacheControl: String(PRODUCT_IMAGE_CACHE_SECONDS),
@@ -84,23 +102,4 @@ export class SupabaseService {
     return payload ?? value;
   }
 
-  private extensionFor(fileName: unknown, contentType: string) {
-    if (typeof fileName === "string" && fileName.includes(".")) {
-      return fileName.split(".").pop()?.toLowerCase() || "png";
-    }
-
-    if (contentType.includes("jpeg")) {
-      return "jpg";
-    }
-
-    if (contentType.includes("webp")) {
-      return "webp";
-    }
-
-    if (contentType.includes("avif")) {
-      return "avif";
-    }
-
-    return "png";
-  }
 }
