@@ -2,7 +2,7 @@
 
 import gsap from "gsap";
 import type { FormEvent, PointerEvent as ReactPointerEvent } from "react";
-import { ArrowUp, ArrowUpRight, Clock3, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, ChevronLeft, ChevronRight, Clock3, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -857,7 +857,7 @@ export default function Page() {
     }
 
     const totalImages = productImages(selectedProduct).length;
-    setSelectedImageIndex((currentIndex) => Math.min(totalImages - 1, Math.max(0, currentIndex + direction)));
+    setSelectedImageIndex((currentIndex) => (currentIndex + direction + totalImages) % totalImages);
   }
 
   function handleGalleryPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -1557,12 +1557,28 @@ export default function Page() {
                 onPointerCancel={() => { galleryPointerStartRef.current = null; }}
                 aria-label={`Imagem ${selectedImageIndex + 1} de ${productImages(selectedProduct).length}. Deslize para trocar.`}
               >
-                <img
-                  src={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl}
-                  alt={selectedProduct.name}
-                  decoding="async"
-                  fetchPriority="high"
-                />
+                {productImages(selectedProduct).map((image, index) => (
+                  <img
+                    key={`${image}-${index}`}
+                    className={selectedImageIndex === index ? "active" : ""}
+                    src={image}
+                    alt={selectedImageIndex === index ? selectedProduct.name : ""}
+                    aria-hidden={selectedImageIndex !== index}
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority={index === 0 ? "high" : "low"}
+                  />
+                ))}
+                {productImages(selectedProduct).length > 1 && (
+                  <>
+                    <button type="button" className="galleryNav previous" onClick={() => changeGalleryImage(-1)} aria-label="Imagem anterior">
+                      <ChevronLeft size={28} strokeWidth={3} />
+                    </button>
+                    <button type="button" className="galleryNav next" onClick={() => changeGalleryImage(1)} aria-label="Próxima imagem">
+                      <ChevronRight size={28} strokeWidth={3} />
+                    </button>
+                  </>
+                )}
               </div>
               {productImages(selectedProduct).length > 1 && (
                 <div className="productThumbs" aria-label="Galeria do produto">
