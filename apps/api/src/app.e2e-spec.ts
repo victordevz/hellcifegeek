@@ -24,6 +24,7 @@ type CreatedProduct = {
   priceCents: number;
   photoUrl: string;
   categoryId: string;
+  tags: string[];
 };
 
 const testRoot = join(process.cwd(), ".tmp-test");
@@ -248,7 +249,7 @@ describe("Hellcife Geek API", () => {
         stock: 3,
         photoUrl: "https://example.com/produto.png",
         photoUrls: ["https://example.com/produto.png"],
-        tags: "teste, raro",
+        tags: "teste, ACTION FIGURE, action figure",
         categoryId,
         active: true,
         recommended: false
@@ -257,6 +258,7 @@ describe("Hellcife Geek API", () => {
 
     product = created.body as CreatedProduct;
     expect(product.priceCents).toBe(4290);
+    expect(product.tags).toEqual(["teste", "action figure"]);
 
     await request(httpServer)
       .patch(`/api/products/${product.id}/recommended`)
@@ -354,6 +356,14 @@ describe("Hellcife Geek API", () => {
     expect(tracked.body.tracked).toBe(true);
     expect(tracked.body.remindAfter).toBeTruthy();
 
+    const adminCarts = await request(httpServer)
+      .get("/api/payments/admin/cart-activity")
+      .set(auth(admin))
+      .expect(200);
+    expect(adminCarts.body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ userEmail: "cliente@test.local" })
+    ]));
+
     const reservedProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
     expect(reservedProduct.body.stock).toBe(3);
 
@@ -363,6 +373,12 @@ describe("Hellcife Geek API", () => {
       .send({ items: [] })
       .expect(201);
     expect(cleared.body.tracked).toBe(false);
+
+    const clearedAdminCarts = await request(httpServer)
+      .get("/api/payments/admin/cart-activity")
+      .set(auth(admin))
+      .expect(200);
+    expect(clearedAdminCarts.body).toEqual([]);
 
     const releasedProduct = await request(httpServer).get(`/api/products/${product.id}`).expect(200);
     expect(releasedProduct.body.stock).toBe(4);

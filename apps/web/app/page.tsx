@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import type { FormEvent } from "react";
+import type { FormEvent, PointerEvent as ReactPointerEvent } from "react";
 import { ArrowUp, ArrowUpRight, Clock3, Eye, EyeOff, Minus, Plus, ShoppingCart, Ticket, Trash2, UserRound, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -149,6 +149,19 @@ function productImages(product: ApiProduct) {
   return images.filter(Boolean);
 }
 
+function preloadProductImages(product: ApiProduct) {
+  if (typeof Image === "undefined") {
+    return;
+  }
+
+  productImages(product).forEach((source) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = source;
+    void image.decode?.().catch(() => undefined);
+  });
+}
+
 function stockFor(product: ApiProduct, variation?: ProductVariation) {
   if (variation) {
     return Math.max(0, Math.floor(Number(variation.stock ?? product.stock ?? 0)));
@@ -269,7 +282,7 @@ function HeroHeadline() {
   return (
     <div className="heroHeadline" aria-label="HELLCIFE GEEK">
       <h1 className="mainHeadline">HELLCIFE GEEK</h1>
-      <h1 className="altHeadline" aria-hidden="true">DROP POKEMON</h1>
+      <h1 className="altHeadline" aria-hidden="true">DROP ONE PIECE</h1>
     </div>
   );
 }
@@ -314,24 +327,27 @@ export default function Page() {
   const [newProductsPopupOpen, setNewProductsPopupOpen] = useState(false);
   const loginModalRef = useRef<HTMLDivElement>(null);
   const signupModalRef = useRef<HTMLDivElement>(null);
+  const galleryPointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const categoriesById = useMemo(() => {
     return new Map(categories.map((category) => [category.id, category.name]));
   }, [categories]);
   const filterOptions = useMemo(() => {
-    return ["All", "Recommended", ...categories.map((category) => category.name)];
+    return ["All", ...categories.map((category) => category.name)];
   }, [categories]);
   const visibleProducts = useMemo(() => {
     let filteredProducts: ApiProduct[];
 
     if (activeCategory === "All") {
       filteredProducts = products;
-    } else if (activeCategory === "Recommended") {
-      filteredProducts = products.filter((product) => product.recommended);
     } else {
       filteredProducts = products.filter((product) => categoriesById.get(product.categoryId) === activeCategory);
     }
 
     return [...filteredProducts].sort((left, right) => {
+      if (Boolean(left.recommended) !== Boolean(right.recommended)) {
+        return left.recommended ? -1 : 1;
+      }
+
       const leftAvailable = left.active && stockFor(left) > 0;
       const rightAvailable = right.active && stockFor(right) > 0;
 
@@ -785,6 +801,12 @@ export default function Page() {
   }, [authModal]);
 
   useEffect(() => {
+    if (selectedProduct) {
+      preloadProductImages(selectedProduct);
+    }
+  }, [selectedProduct]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closeAuthModal();
@@ -804,11 +826,43 @@ export default function Page() {
 
   function openProduct(product: ApiProduct) {
     const firstAvailableVariation = product.variations?.find((variation) => stockFor(product, variation) > 0) ?? product.variations?.[0];
+    preloadProductImages(product);
     setSelectedProduct(product);
     setSelectedVariationId(firstAvailableVariation?.id ?? null);
     setSelectedImageIndex(0);
     setProductQuantity(1);
     setCartMessage("");
+  }
+
+  function changeGalleryImage(direction: -1 | 1) {
+    if (!selectedProduct) {
+      return;
+    }
+
+    const totalImages = productImages(selectedProduct).length;
+    setSelectedImageIndex((currentIndex) => Math.min(totalImages - 1, Math.max(0, currentIndex + direction)));
+  }
+
+  function handleGalleryPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    galleryPointerStartRef.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function handleGalleryPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const pointerStart = galleryPointerStartRef.current;
+    galleryPointerStartRef.current = null;
+
+    if (!pointerStart) {
+      return;
+    }
+
+    const horizontalDistance = event.clientX - pointerStart.x;
+    const verticalDistance = event.clientY - pointerStart.y;
+
+    if (Math.abs(horizontalDistance) < 48 || Math.abs(horizontalDistance) <= Math.abs(verticalDistance)) {
+      return;
+    }
+
+    changeGalleryImage(horizontalDistance < 0 ? 1 : -1);
   }
 
   function changeProductQuantity(nextQuantity: number) {
@@ -1327,7 +1381,7 @@ export default function Page() {
               </button>
             ))}
           </div>
-          <strong>DROP POKEMONS</strong>
+          <strong>DROP ONE PIECE</strong>
         </div>
 
         <div className="productGrid">
@@ -1347,7 +1401,6 @@ export default function Page() {
             >
               <div className="productImage">
                 <img src={productImages(product)[0]} alt={product.name} />
-                {product.recommended && <span>Recomendado</span>}
               </div>
               <div className="productBody">
                 <div className="productMeta">
@@ -1361,13 +1414,7 @@ export default function Page() {
                   ))}
                   {product.variations?.length ? <span>{product.variations.length} variacoes</span> : null}
                 </div>
-                <button type="button" className="productOpen" onClick={(event) => {
-                  event.stopPropagation();
-                  openProduct(product);
-                }}>
-                  <span>{stockLabel(product)}</span>
-                  <ArrowUpRight size={28} strokeWidth={2.5} />
-                </button>
+                <div className="productFooter" aria-hidden="true" />
               </div>
             </article>
           ))}
@@ -1486,8 +1533,19 @@ export default function Page() {
               <X size={22} strokeWidth={3} />
             </button>
             <div className="productModalMedia">
-              <div className="productMainImage">
-                <img src={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl} alt={selectedProduct.name} />
+              <div
+                className="productMainImage"
+                onPointerDown={handleGalleryPointerDown}
+                onPointerUp={handleGalleryPointerUp}
+                onPointerCancel={() => { galleryPointerStartRef.current = null; }}
+                aria-label={`Imagem ${selectedImageIndex + 1} de ${productImages(selectedProduct).length}. Deslize para trocar.`}
+              >
+                <img
+                  key={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl}
+                  src={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl}
+                  alt={selectedProduct.name}
+                  decoding="async"
+                />
               </div>
               {productImages(selectedProduct).length > 1 && (
                 <div className="productThumbs" aria-label="Galeria do produto">

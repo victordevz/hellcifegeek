@@ -26,7 +26,7 @@ export class ProductsService {
         return false;
       }
 
-      if (query.tag && !product.tags.includes(query.tag)) {
+      if (query.tag && !product.tags.includes(query.tag.trim().toLowerCase())) {
         return false;
       }
 
@@ -91,7 +91,7 @@ export class ProductsService {
       currency: "BRL",
       photoUrl: photoUrls[0],
       photoUrls,
-      tags: stringList(body.tags),
+      tags: this.normalizeTags(body.tags),
       categoryId,
       active: booleanValue(body.active, true),
       recommended: booleanValue(body.recommended, false),
@@ -131,7 +131,7 @@ export class ProductsService {
       product.photoUrls = photoUrls;
     }
 
-    product.tags = body.tags === undefined ? product.tags : stringList(body.tags);
+    product.tags = body.tags === undefined ? product.tags : this.normalizeTags(body.tags);
     product.active = booleanValue(body.active, product.active);
     product.recommended = booleanValue(body.recommended, Boolean(product.recommended));
     product.variations = body.variations === undefined ? product.variations : this.normalizeVariations(body.variations);
@@ -176,6 +176,10 @@ export class ProductsService {
       photoUrls: product.photoUrls?.length ? product.photoUrls : [product.photoUrl].filter(Boolean),
       variations
     };
+  }
+
+  private normalizeTags(value: unknown) {
+    return Array.from(new Set(stringList(value).map((tag) => tag.toLowerCase())));
   }
 
   private expireStaleReservations(data: Database) {

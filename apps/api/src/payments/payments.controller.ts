@@ -32,6 +32,12 @@ export class PaymentsController {
     return this.payments.getSalesReport({ startDate, endDate });
   }
 
+  @Get("admin/cart-activity")
+  @UseGuards(AuthGuard, AdminGuard)
+  getAdminCartActivity() {
+    return this.payments.getAdminCartActivity();
+  }
+
   @Get(":id")
   @UseGuards(AuthGuard)
   getPayment(@Req() request: { user: RequestUser }, @Param("id") paymentId: string) {

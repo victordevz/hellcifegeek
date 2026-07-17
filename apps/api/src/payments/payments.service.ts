@@ -304,6 +304,14 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  async getAdminCartActivity() {
+    const data = await this.store.read();
+
+    return data.cartReminders
+      .filter((reminder) => !reminder.clearedAt && reminder.items.length > 0)
+      .sort((first, second) => new Date(second.updatedAt).getTime() - new Date(first.updatedAt).getTime());
+  }
+
   private async createMercadoPagoPix(accessToken: string, payment: PaymentRecord, user: User) {
     const providerExpiresAt = new Date(new Date(payment.createdAt).getTime() + 30 * 60 * 1000).toISOString();
     const response = await fetch(mercadoPagoApiUrl, {
@@ -452,9 +460,23 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.convertReservationsForPayment(data, payment.id);
+    this.clearCartReminderForUser(data, payment.userId);
     this.subtractSoldStock(data, payment.items);
     this.recordEcommerceSale(data, payment);
     payment.cashbackApplied = true;
+  }
+
+  private clearCartReminderForUser(data: Database, userId: string) {
+    const reminder = data.cartReminders.find((entry) => entry.userId === userId);
+
+    if (!reminder) {
+      return;
+    }
+
+    reminder.items = [];
+    reminder.subtotalCents = 0;
+    reminder.updatedAt = new Date().toISOString();
+    reminder.clearedAt = reminder.updatedAt;
   }
 
   private toPublicPayment(payment: PaymentRecord) {

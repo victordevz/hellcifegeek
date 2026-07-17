@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000/api";
-const adminSections = ["produtos", "categorias", "sorteios", "vendas", "usuarios", "catalogo"] as const;
+const adminSections = ["dashboard", "produtos", "categorias", "sorteios", "vendas", "carrinhos", "usuarios", "catalogo"] as const;
 
 type AdminSection = typeof adminSections[number];
 
@@ -111,6 +111,7 @@ type SalesReport = {
   sales: Array<{
     id: string;
     paymentId: string;
+    userId: string;
     userEmail: string;
     couponCode?: string;
     totalCents: number;
@@ -127,6 +128,19 @@ type SalesReport = {
     createdAt: string;
   }>;
 };
+
+type AdminCartActivity = {
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  items: SalesReportItem[];
+  subtotalCents: number;
+  updatedAt: string;
+  remindAfter: string;
+  reminderSentAt?: string;
+};
+
+type UserFilter = "recentes" | "antigos" | "compradores" | "carrinho" | "cadastro";
 
 type ProductForm = {
   id?: string;
@@ -212,20 +226,7 @@ function variationSummary(product: AdminProduct) {
 }
 
 function normalizeAdminSection(section?: string): AdminSection {
-  return adminSections.includes(section as AdminSection) ? section as AdminSection : "produtos";
-}
-
-function adminSectionTitle(section: AdminSection) {
-  const titles: Record<AdminSection, string> = {
-    produtos: "Produtos",
-    categorias: "Categorias",
-    sorteios: "Sorteios",
-    vendas: "Vendas",
-    usuarios: "Usuarios",
-    catalogo: "Catalogo"
-  };
-
-  return titles[section];
+  return adminSections.includes(section as AdminSection) ? section as AdminSection : "dashboard";
 }
 
 export default function AdminPage({ section }: AdminPageProps) {
@@ -239,6 +240,9 @@ export default function AdminPage({ section }: AdminPageProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [launchRaffle, setLaunchRaffle] = useState<AdminLaunchRaffle | null>(null);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
+  const [cartActivities, setCartActivities] = useState<AdminCartActivity[]>([]);
+  const [userFilter, setUserFilter] = useState<UserFilter>("recentes");
+  const [catalogTagFilter, setCatalogTagFilter] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -252,7 +256,39 @@ export default function AdminPage({ section }: AdminPageProps) {
   const totalStock = products.reduce((total, product) => total + product.stock, 0);
   const clientUsers = users.filter((user) => user.role === "client");
   const partnerUsers = users.filter((user) => user.role === "partner");
+  const partnerCouponCodes = new Set(partnerUsers
+    .map((user) => user.partnerCouponCode?.toUpperCase())
+    .filter((couponCode): couponCode is string => Boolean(couponCode)));
+  const partnerSales = (salesReport?.sales ?? []).filter((sale) => (
+    Boolean(sale.couponCode) && partnerCouponCodes.has(sale.couponCode!.toUpperCase())
+  ));
+  const partnerSalesTotalCents = partnerSales.reduce((total, sale) => total + sale.totalCents, 0);
   const launchRaffleProgress = Math.min(100, Math.round(((launchRaffle?.registeredCount ?? 0) / (launchRaffle?.goal || 125)) * 100));
+  const catalogTags = useMemo(() => Array.from(new Set(products.flatMap((product) => product.tags)))
+    .sort((first, second) => first.localeCompare(second, "pt-BR")), [products]);
+  const visibleCatalogProducts = useMemo(() => {
+    const filteredProducts = catalogTagFilter ? products.filter((product) => product.tags.includes(catalogTagFilter)) : products;
+
+    return [...filteredProducts].sort((left, right) => Number(Boolean(right.recommended)) - Number(Boolean(left.recommended)));
+  }, [catalogTagFilter, products]);
+  const visibleUsers = useMemo(() => {
+    const buyerIds = new Set((salesReport?.sales ?? []).map((sale) => sale.userId));
+    const cartUserIds = new Set(cartActivities.map((cart) => cart.userId));
+    let filteredUsers = [...users];
+
+    if (userFilter === "compradores") {
+      filteredUsers = filteredUsers.filter((user) => buyerIds.has(user.id));
+    } else if (userFilter === "carrinho") {
+      filteredUsers = filteredUsers.filter((user) => cartUserIds.has(user.id));
+    } else if (userFilter === "cadastro") {
+      filteredUsers = filteredUsers.filter((user) => user.role === "client" && !buyerIds.has(user.id) && !cartUserIds.has(user.id));
+    }
+
+    return filteredUsers.sort((first, second) => {
+      const difference = new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
+      return userFilter === "antigos" ? -difference : difference;
+    });
+  }, [cartActivities, salesReport?.sales, userFilter, users]);
 
   function authHeaders(authToken = token) {
     return {
@@ -261,10 +297,33 @@ export default function AdminPage({ section }: AdminPageProps) {
     };
   }
 
+  function clearAdminSession(messageText = "Sessao expirada. Entre novamente no admin.") {
+    localStorage.removeItem("hellcifegeek.token");
+    localStorage.removeItem("hellcifegeek.user");
+    setToken("");
+    setProducts([]);
+    setCategories([]);
+    setUsers([]);
+    setLaunchRaffle(null);
+    setSalesReport(null);
+    setCartActivities([]);
+    setMessage(messageText);
+  }
+
+  function handleAuthFailure(response: Response) {
+    if (response.status !== 401 && response.status !== 403) {
+      return false;
+    }
+
+    clearAdminSession();
+    return true;
+  }
+
   async function loadProducts() {
     const response = await fetch(`${apiUrl}/products`, { cache: "no-store" });
     const data = (await response.json()) as AdminProduct[];
     setProducts(data);
+    return data;
   }
 
   async function loadCategories() {
@@ -288,6 +347,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel carregar os usuarios.");
       return;
     }
@@ -307,6 +370,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Não foi possível carregar o sorteio.");
       return;
     }
@@ -325,6 +392,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Não foi possível carregar o relatório de vendas.");
       return;
     }
@@ -332,8 +403,30 @@ export default function AdminPage({ section }: AdminPageProps) {
     setSalesReport(await response.json() as SalesReport);
   }
 
+  async function loadCartActivities(authToken = token) {
+    if (!authToken) {
+      return;
+    }
+
+    const response = await fetch(`${apiUrl}/payments/admin/cart-activity`, {
+      headers: authHeaders(authToken),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
+      setMessage("Não foi possível carregar os carrinhos.");
+      return;
+    }
+
+    setCartActivities(await response.json() as AdminCartActivity[]);
+  }
+
   async function loadAdminData(authToken = token) {
-    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken), loadLaunchRaffle(authToken), loadSalesReport(authToken)]);
+    await Promise.all([loadProducts(), loadCategories(), loadUsers(authToken), loadLaunchRaffle(authToken), loadSalesReport(authToken), loadCartActivities(authToken)]);
   }
 
   useEffect(() => {
@@ -346,7 +439,6 @@ export default function AdminPage({ section }: AdminPageProps) {
     }
 
     setToken(storedToken);
-    setMessage("Admin conectado.");
     void loadAdminData(storedToken);
   }, []);
 
@@ -389,7 +481,6 @@ export default function AdminPage({ section }: AdminPageProps) {
       localStorage.setItem("hellcifegeek.token", data.token);
       localStorage.setItem("hellcifegeek.user", JSON.stringify(data.user));
       setToken(data.token);
-      setMessage("Admin conectado.");
       await loadAdminData(data.token);
     } finally {
       setIsLoading(false);
@@ -397,14 +488,7 @@ export default function AdminPage({ section }: AdminPageProps) {
   }
 
   function logout() {
-    localStorage.removeItem("hellcifegeek.token");
-    localStorage.removeItem("hellcifegeek.user");
-    setToken("");
-    setProducts([]);
-    setCategories([]);
-    setUsers([]);
-    setSalesReport(null);
-    setMessage("Sessao encerrada.");
+    clearAdminSession("Sessao encerrada.");
   }
 
   async function createCategory(event: FormEvent<HTMLFormElement>) {
@@ -421,6 +505,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel criar a categoria.");
       return;
     }
@@ -438,6 +526,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Categoria possui produto vinculado ou nao pode ser removida.");
       return;
     }
@@ -477,6 +569,10 @@ export default function AdminPage({ section }: AdminPageProps) {
         });
 
         if (!response.ok) {
+          if (handleAuthFailure(response)) {
+            return;
+          }
+
           const error = await response.json().catch(() => ({ message: "Erro desconhecido" })) as { message?: string };
           throw new Error(`${fileName}: ${error.message ?? "nao foi possivel enviar"}`);
         }
@@ -617,14 +713,34 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel salvar o produto.");
       return;
     }
 
-    setMessage(productForm.id ? "Produto atualizado." : "Produto criado.");
+    const savedProduct = await response.json() as AdminProduct;
+    setProducts((currentProducts) => {
+      const exists = currentProducts.some((product) => product.id === savedProduct.id);
+      return exists
+        ? currentProducts.map((product) => product.id === savedProduct.id ? savedProduct : product)
+        : [savedProduct, ...currentProducts];
+    });
+    setMessage(productForm.id ? "Produto atualizado." : "Produto criado e publicado no catalogo.");
     sessionStorage.removeItem("hellcifegeek.editProduct");
     resetProductForm();
-    await loadProducts();
+    const nextProducts = await loadProducts();
+
+    if (!nextProducts.some((product) => product.id === savedProduct.id)) {
+      setProducts((currentProducts) => [savedProduct, ...currentProducts.filter((product) => product.id !== savedProduct.id)]);
+      setMessage("Produto criado, mas a listagem ainda nao sincronizou. Clique em Atualizar no catalogo em alguns segundos.");
+    }
+
+    if (!productForm.id) {
+      router.push("/admin/catalogo");
+    }
   }
 
   async function toggleRecommended(product: AdminProduct) {
@@ -635,6 +751,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel atualizar o produto.");
       return;
     }
@@ -650,6 +770,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel remover o produto.");
       return;
     }
@@ -671,6 +795,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel atualizar o usuario.");
       return;
     }
@@ -692,6 +820,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel atualizar o parceiro.");
       return;
     }
@@ -720,6 +852,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       const error = await response.json().catch(() => ({ message: "Nao foi possivel atualizar o cupom." })) as { message?: string };
       setMessage(error.message ?? "Nao foi possivel atualizar o cupom.");
       return;
@@ -748,6 +884,10 @@ export default function AdminPage({ section }: AdminPageProps) {
     });
 
     if (!response.ok) {
+      if (handleAuthFailure(response)) {
+        return;
+      }
+
       setMessage("Nao foi possivel deletar o usuario.");
       return;
     }
@@ -785,10 +925,12 @@ export default function AdminPage({ section }: AdminPageProps) {
       <aside className="adminSidebar">
         <a className="adminBrand" href="/">Hellcife Geek</a>
         <nav>
+          <a className={currentSection === "dashboard" ? "active" : ""} href="/admin">Dashboard</a>
           <a className={currentSection === "produtos" ? "active" : ""} href="/admin/produtos">Produtos</a>
           <a className={currentSection === "categorias" ? "active" : ""} href="/admin/categorias">Categorias</a>
           <a className={currentSection === "sorteios" ? "active" : ""} href="/admin/sorteios">Sorteios</a>
           <a className={currentSection === "vendas" ? "active" : ""} href="/admin/vendas">Vendas</a>
+          <a className={currentSection === "carrinhos" ? "active" : ""} href="/admin/carrinhos">Carrinhos</a>
           <a className={currentSection === "usuarios" ? "active" : ""} href="/admin/usuarios">Usuarios</a>
           <a className={currentSection === "catalogo" ? "active" : ""} href="/admin/catalogo">Catalogo</a>
         </nav>
@@ -796,24 +938,87 @@ export default function AdminPage({ section }: AdminPageProps) {
       </aside>
 
       <section className="adminWorkspace">
-        <header className="adminTopbar">
-          <div>
-            <span>Painel administrativo</span>
-            <h1>{adminSectionTitle(currentSection)}</h1>
-          </div>
-          <div className="adminStats">
-            <strong>{products.length}<span>Produtos</span></strong>
-            <strong>{activeProducts}<span>Ativos</span></strong>
-            <strong>{totalStock}<span>Em estoque</span></strong>
-            <strong>{recommendedProducts}<span>Recomendados</span></strong>
-            <strong>{clientUsers.length}<span>Usuarios</span></strong>
-            <strong>{partnerUsers.length}<span>Parceiros</span></strong>
-            <strong>{formatNumber(launchRaffle?.totalTickets)}<span>Tickets sorteio</span></strong>
-            <strong>{formatCents(salesReport?.summary.totalCents)}<span>Vendido</span></strong>
-          </div>
-        </header>
-
         {message && <p className="adminNotice">{message}</p>}
+
+        {currentSection === "dashboard" && (
+          <section className="adminDashboard" aria-label="Visão geral do negócio">
+            <div className="adminDashboardHeader">
+              <div>
+                <span>Visão geral</span>
+                <h1>Dashboard</h1>
+              </div>
+              <button type="button" onClick={() => loadAdminData()}>Atualizar dados</button>
+            </div>
+
+            <div className="adminDashboardGrid">
+              <article className="adminDashboardPanel">
+                <div className="adminDashboardPanelHeader">
+                  <div>
+                    <span>Vendas</span>
+                    <h2>Resumo comercial</h2>
+                  </div>
+                  <a href="/admin/vendas">Ver vendas</a>
+                </div>
+                <div className="adminDashboardMetrics">
+                  <div><span>Total vendido</span><strong>{formatCents(salesReport?.summary.totalCents)}</strong></div>
+                  <div><span>Vendas concluídas</span><strong>{formatNumber(salesReport?.summary.saleCount)}</strong></div>
+                  <div><span>Ticket médio</span><strong>{formatCents(salesReport?.summary.averageTicketCents)}</strong></div>
+                  <div><span>Carrinhos ativos</span><strong>{formatNumber(cartActivities.length)}</strong></div>
+                </div>
+              </article>
+
+              <article className="adminDashboardPanel">
+                <div className="adminDashboardPanelHeader">
+                  <div>
+                    <span>Parceiros</span>
+                    <h2>Cupons e indicações</h2>
+                  </div>
+                  <a href="/admin/usuarios">Ver parceiros</a>
+                </div>
+                <div className="adminDashboardMetrics">
+                  <div><span>Parceiros ativos</span><strong>{formatNumber(partnerUsers.length)}</strong></div>
+                  <div><span>Vendas com cupom</span><strong>{formatNumber(partnerSales.length)}</strong></div>
+                  <div><span>Valor indicado</span><strong>{formatCents(partnerSalesTotalCents)}</strong></div>
+                  <div><span>Clientes</span><strong>{formatNumber(clientUsers.length)}</strong></div>
+                </div>
+              </article>
+
+              <article className="adminDashboardPanel">
+                <div className="adminDashboardPanelHeader">
+                  <div>
+                    <span>Hellpoints</span>
+                    <h2>Sorteio de lançamento</h2>
+                  </div>
+                  <a href="/admin/sorteios">Ver sorteio</a>
+                </div>
+                <div className="adminDashboardMetrics">
+                  <div><span>Tickets distribuídos</span><strong>{formatNumber(launchRaffle?.totalTickets)}</strong></div>
+                  <div><span>Participantes</span><strong>{formatNumber(launchRaffle?.registeredCount)} / {formatNumber(launchRaffle?.goal ?? 125)}</strong></div>
+                  <div><span>Status</span><strong>{launchRaffle?.unlocked ? "Liberado" : "Aguardando meta"}</strong></div>
+                </div>
+                <div className="adminRaffleProgress" aria-label={`${launchRaffleProgress}% da meta`}>
+                  <span style={{ width: `${launchRaffleProgress}%` }} />
+                </div>
+              </article>
+
+              <article className="adminDashboardPanel">
+                <div className="adminDashboardPanelHeader">
+                  <div>
+                    <span>Catálogo</span>
+                    <h2>Disponibilidade</h2>
+                  </div>
+                  <a href="/admin/catalogo">Ver catálogo</a>
+                </div>
+                <div className="adminDashboardMetrics">
+                  <div><span>Produtos</span><strong>{formatNumber(products.length)}</strong></div>
+                  <div><span>Ativos</span><strong>{formatNumber(activeProducts)}</strong></div>
+                  <div><span>Em estoque</span><strong>{formatNumber(totalStock)}</strong></div>
+                  <div><span>Recomendados</span><strong>{formatNumber(recommendedProducts)}</strong></div>
+                </div>
+              </article>
+            </div>
+          </section>
+        )}
 
         {(currentSection === "produtos" || currentSection === "categorias") && (
         <div className="adminGrid">
@@ -1035,7 +1240,7 @@ export default function AdminPage({ section }: AdminPageProps) {
             <button type="button" onClick={() => loadSalesReport()}>Atualizar</button>
           </div>
 
-          <div className="adminSalesSummary">
+            <div className="adminSalesSummary">
             <div>
               <span>Vendas concluídas</span>
               <strong>{formatNumber(salesReport?.summary.saleCount)}</strong>
@@ -1048,22 +1253,19 @@ export default function AdminPage({ section }: AdminPageProps) {
               <span>Itens vendidos</span>
               <strong>{formatNumber(salesReport?.summary.itemCount)}</strong>
             </div>
-            <div>
-              <span>Ticket médio</span>
-              <strong>{formatCents(salesReport?.summary.averageTicketCents)}</strong>
+              <div>
+                <span>Ticket médio</span>
+                <strong>{formatCents(salesReport?.summary.averageTicketCents)}</strong>
+              </div>
             </div>
-            <div>
-              <span>Reservas ativas</span>
-              <strong>{formatNumber(salesReport?.summary.activeReservationCount)}</strong>
-            </div>
-          </div>
 
-          <div className="adminSalesColumns">
-            <div>
+          <div className="adminSalesLayout">
+            <section className="adminSalesPanel">
               <h3>Produtos vendidos</h3>
-              <div className="adminSalesTable">
-                {(salesReport?.productBreakdown ?? []).map((item) => (
+              <div className="adminSoldProducts">
+                {(salesReport?.productBreakdown ?? []).map((item, index) => (
                   <article key={item.productId ?? item.name}>
+                    <span className="adminSalesRank">{index + 1}</span>
                     <div>
                       <strong>{item.name}</strong>
                       <span>{formatNumber(item.quantity)} unidade(s)</span>
@@ -1073,39 +1275,63 @@ export default function AdminPage({ section }: AdminPageProps) {
                 ))}
                 {(salesReport?.productBreakdown.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma venda concluída ainda.</p>}
               </div>
-            </div>
-            <div>
-              <h3>Reservas em andamento</h3>
-              <div className="adminSalesTable">
-                {(salesReport?.reservations ?? []).map((reservation) => (
-                  <article key={reservation.id}>
-                    <div>
-                      <strong>{reservation.userEmail}</strong>
-                      <span>Expira em {new Date(reservation.expiresAt).toLocaleString("pt-BR")}</span>
-                      <small>{reservation.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}</small>
+            </section>
+
+            <section className="adminSalesPanel">
+              <h3>Histórico de pedidos</h3>
+              <div className="adminSalesHistory">
+                {(salesReport?.sales ?? []).map((sale) => (
+                  <article key={sale.id}>
+                    <div className="adminSalesCustomer">
+                      <strong>{sale.userEmail}</strong>
+                      <span>{new Date(sale.approvedAt).toLocaleString("pt-BR")}</span>
+                      <small>Pedido {sale.paymentId.slice(0, 8)}</small>
+                    </div>
+                    <div className="adminSalesItems">
+                      {sale.items.map((item) => <span key={`${sale.id}-${item.productId ?? item.name}`}>{item.quantity}x {item.name}</span>)}
+                    </div>
+                    <div className="adminSalesTotal">
+                      <strong>{formatCents(sale.totalCents)}</strong>
+                      {sale.couponCode && <span>Cupom {sale.couponCode} · -{formatCents(sale.discountCents)}</span>}
                     </div>
                   </article>
                 ))}
-                {(salesReport?.reservations.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma reserva ativa agora.</p>}
+                {(salesReport?.sales.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma venda registrada.</p>}
               </div>
+            </section>
+          </div>
+        </section>
+        )}
+
+        {currentSection === "carrinhos" && (
+        <section id="carrinhos" className="adminCard">
+          <div className="adminCardHeader">
+            <div>
+              <span>Marketing e recuperação</span>
+              <h2>Carrinhos ativos</h2>
             </div>
+            <button type="button" onClick={() => loadCartActivities()}>Atualizar</button>
           </div>
 
-          <div className="adminSalesTable">
-            {(salesReport?.sales ?? []).map((sale) => (
-              <article key={sale.id}>
+          <p className="adminSectionDescription">Clientes cadastrados que ainda possuem itens no carrinho. Carrinhos são removidos desta lista quando o cliente finaliza uma compra.</p>
+
+          <div className="adminCartTable">
+            {cartActivities.map((cart) => (
+              <article key={cart.userId}>
                 <div>
-                  <strong>{sale.userEmail}</strong>
-                  <span>{new Date(sale.approvedAt).toLocaleString("pt-BR")} · Pedido {sale.paymentId.slice(0, 8)}</span>
-                  <small>{sale.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}</small>
+                  <strong>{cart.userName || "Cliente"}</strong>
+                  <span>{cart.userEmail}</span>
+                  <small>Atualizado em {new Date(cart.updatedAt).toLocaleString("pt-BR")}</small>
+                  <small>{cart.items.map((item) => `${item.quantity}x ${item.name}`).join(", ")}</small>
                 </div>
-                <div>
-                  <strong>{formatCents(sale.totalCents)}</strong>
-                  {sale.couponCode && <span>Cupom {sale.couponCode} · desconto {formatCents(sale.discountCents)}</span>}
+                <div className="adminCartValue">
+                  <strong>{formatCents(cart.subtotalCents)}</strong>
+                  <span>{cart.reminderSentAt ? "Lembrete enviado" : `Lembrete após ${new Date(cart.remindAfter).toLocaleString("pt-BR")}`}</span>
+                  <a href={`mailto:${cart.userEmail}`}>Entrar em contato</a>
                 </div>
               </article>
             ))}
-            {(salesReport?.sales.length ?? 0) === 0 && <p className="adminEmpty">Nenhuma venda registrada.</p>}
+            {cartActivities.length === 0 && <p className="adminEmpty">Nenhum carrinho ativo no momento.</p>}
           </div>
         </section>
         )}
@@ -1117,11 +1343,17 @@ export default function AdminPage({ section }: AdminPageProps) {
               <span>Catalogo publicado</span>
               <h2>Produtos</h2>
             </div>
-            <button type="button" onClick={() => loadAdminData()}>Atualizar</button>
+            <div className="adminHeaderActions">
+              <select value={catalogTagFilter} onChange={(event) => setCatalogTagFilter(event.target.value)} aria-label="Filtrar catálogo por tag">
+                <option value="">Todas as tags</option>
+                {catalogTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+              </select>
+              <button type="button" onClick={() => loadAdminData()}>Atualizar</button>
+            </div>
           </div>
 
           <div className="adminProductTable">
-            {products.map((product) => (
+            {visibleCatalogProducts.map((product) => (
               <article key={product.id}>
                 <img src={product.photoUrls?.[0] ?? product.photoUrl} alt={product.name} />
                 <div>
@@ -1133,7 +1365,6 @@ export default function AdminPage({ section }: AdminPageProps) {
                 <div className="adminStatus">
                   <span className={product.active ? "ok" : "muted"}>{product.active ? "Ativo" : "Inativo"}</span>
                   <span className={product.stock > 0 ? "ok" : "muted"}>{product.stock > 0 ? `${product.stock} em estoque` : "Sem estoque"}</span>
-                  {product.recommended && <span className="ok">Recomendado</span>}
                 </div>
                 <div className="adminRowActions">
                   <button type="button" onClick={() => editProduct(product)}>Editar</button>
@@ -1142,7 +1373,7 @@ export default function AdminPage({ section }: AdminPageProps) {
                 </div>
               </article>
             ))}
-            {products.length === 0 && <p className="adminEmpty">Nenhum produto cadastrado ainda.</p>}
+            {visibleCatalogProducts.length === 0 && <p className="adminEmpty">Nenhum produto encontrado para esta tag.</p>}
           </div>
         </section>
         )}
@@ -1154,11 +1385,20 @@ export default function AdminPage({ section }: AdminPageProps) {
               <span>Contas cadastradas</span>
               <h2>Usuarios</h2>
             </div>
-            <button type="button" onClick={() => loadUsers()}>Atualizar</button>
+            <div className="adminHeaderActions">
+              <select value={userFilter} onChange={(event) => setUserFilter(event.target.value as UserFilter)} aria-label="Filtrar usuários">
+                <option value="recentes">Recentes</option>
+                <option value="antigos">Antigos</option>
+                <option value="compradores">Compradores</option>
+                <option value="carrinho">Carrinho ativo</option>
+                <option value="cadastro">Só cadastro</option>
+              </select>
+              <button type="button" onClick={() => loadAdminData()}>Atualizar</button>
+            </div>
           </div>
 
           <div className="adminUserTable">
-            {users.map((user) => (
+            {visibleUsers.map((user) => (
               <article key={user.id}>
                 <div>
                   <strong>{user.email}</strong>
@@ -1190,7 +1430,7 @@ export default function AdminPage({ section }: AdminPageProps) {
                 </div>
               </article>
             ))}
-            {users.length === 0 && <p className="adminEmpty">Nenhum usuario cadastrado ainda.</p>}
+            {visibleUsers.length === 0 && <p className="adminEmpty">Nenhum usuário encontrado para este filtro.</p>}
           </div>
         </section>
         )}

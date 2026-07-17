@@ -511,6 +511,8 @@ h2 {
 
 .productCard {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
   border: 2px solid var(--black);
   background: var(--white);
   cursor: pointer;
@@ -572,9 +574,11 @@ h2 {
 }
 
 .productBody {
-  display: grid;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
   gap: 10px;
-  padding: 10px;
+  padding: 10px 10px 0;
 }
 
 .productMeta {
@@ -602,6 +606,7 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  margin-top: auto;
 }
 
 .productTags span {
@@ -611,38 +616,9 @@ h2 {
   font-size: 11px;
 }
 
-.productBody button {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  border: 0;
+.productFooter {
+  min-height: 10px;
   border-top: 2px solid currentColor;
-  background: transparent;
-  padding-top: 10px;
-  color: inherit;
-  font-size: 12px;
-  text-align: left;
-}
-
-.productBody button svg {
-  color: var(--red);
-  transform: rotate(0deg);
-  transition: transform 160ms linear;
-}
-
-.productCard.isSoldOut .productBody button {
-  color: var(--red);
-}
-
-.productCard.isSoldOut .productBody button span {
-  font-size: 17px;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.productCard.isSoldOut .productBody button svg {
-  display: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -657,9 +633,6 @@ h2 {
     transform: scale(1.03);
   }
 
-  .productCard:not(.isSoldOut):hover .productBody button svg {
-    transform: rotate(45deg) scale(1.1);
-  }
 }
 
 .loadMore {
@@ -1282,6 +1255,8 @@ h2 {
   min-height: 520px;
   border: 2px solid var(--black);
   background: var(--black);
+  touch-action: pan-y;
+  user-select: none;
 }
 
 .productMainImage img,
@@ -1291,6 +1266,10 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.productMainImage img {
+  -webkit-user-drag: none;
 }
 
 .productThumbs {
@@ -3285,10 +3264,7 @@ h2 {
 }
 
 .adminTopbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
+  display: block;
   min-width: 0;
 }
 
@@ -3318,15 +3294,15 @@ h2 {
 }
 
 .adminStats {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+  width: 100%;
   min-width: 0;
 }
 
 .adminStats strong {
-  flex: 1 1 110px;
-  min-width: 104px;
+  min-width: 0;
   border: 1px solid #d9dee7;
   border-radius: 8px;
   background: #ffffff;
@@ -3344,7 +3320,7 @@ h2 {
 
 .adminGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -3378,6 +3354,126 @@ h2 {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.adminHeaderActions {
+  display: flex;
+  gap: 10px;
+}
+
+.adminHeaderActions select {
+  min-height: 40px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 0 34px 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.adminDashboard {
+  display: grid;
+  gap: 20px;
+}
+
+.adminDashboardHeader,
+.adminDashboardPanelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.adminDashboardHeader > div > span,
+.adminDashboardPanelHeader > div > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.adminDashboardHeader h1,
+.adminDashboardPanelHeader h2 {
+  margin: 0;
+  color: #111827;
+  font-family: Inter, Arial, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.adminDashboardHeader h1 {
+  font-size: clamp(32px, 4vw, 48px);
+}
+
+.adminDashboardPanelHeader h2 {
+  font-size: 20px;
+}
+
+.adminDashboardHeader button,
+.adminDashboardPanelHeader a {
+  min-height: 40px;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 38px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.adminDashboardHeader button:hover,
+.adminDashboardPanelHeader a:hover {
+  border-color: #111827;
+}
+
+.adminDashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.adminDashboardPanel {
+  min-width: 0;
+  border: 1px solid #d9dee7;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 22px;
+}
+
+.adminDashboardMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.adminDashboardMetrics > div {
+  min-width: 0;
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.adminDashboardMetrics span {
+  display: block;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.adminDashboardMetrics strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #111827;
+  font-size: 20px;
 }
 
 .adminCleanForm {
@@ -3618,7 +3714,8 @@ h2 {
 .adminProductTable,
 .adminUserTable,
 .adminRaffleTable,
-.adminSalesTable {
+.adminSalesTable,
+.adminCartTable {
   display: grid;
   gap: 10px;
 }
@@ -3688,7 +3785,7 @@ h2 {
 
 .adminSalesSummary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -3696,7 +3793,8 @@ h2 {
 .adminRaffleSummary div,
 .adminSalesSummary div,
 .adminSalesTable article,
-.adminRaffleTable article {
+.adminRaffleTable article,
+.adminCartTable article {
   border: 1px solid #eef2f6;
   border-radius: 8px;
   padding: 12px;
@@ -3706,7 +3804,9 @@ h2 {
 .adminSalesSummary span,
 .adminSalesTable span,
 .adminSalesTable small,
-.adminRaffleTable span {
+.adminRaffleTable span,
+.adminCartTable span,
+.adminCartTable small {
   display: block;
   color: #667085;
   font-size: 12px;
@@ -3716,7 +3816,8 @@ h2 {
 .adminRaffleSummary strong,
 .adminSalesSummary strong,
 .adminSalesTable strong,
-.adminRaffleTable strong {
+.adminRaffleTable strong,
+.adminCartTable strong {
   display: block;
   margin-top: 4px;
   color: #111827;
@@ -3725,7 +3826,7 @@ h2 {
 
 .adminSalesColumns {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -3734,6 +3835,106 @@ h2 {
   margin: 0 0 10px;
   color: #111827;
   font-size: 16px;
+}
+
+.adminSalesLayout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.2fr);
+  gap: 20px;
+}
+
+.adminSalesPanel {
+  min-width: 0;
+}
+
+.adminSalesPanel h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 16px;
+}
+
+.adminSoldProducts,
+.adminSalesHistory {
+  display: grid;
+  gap: 10px;
+}
+
+.adminSoldProducts article {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.adminSalesRank {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f2f4f7;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.adminSoldProducts strong,
+.adminSalesHistory strong {
+  display: block;
+  color: #111827;
+}
+
+.adminSoldProducts div span,
+.adminSalesCustomer span,
+.adminSalesCustomer small,
+.adminSalesTotal span {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.adminSoldProducts > article > strong {
+  font-size: 16px;
+  text-align: right;
+}
+
+.adminSalesHistory article {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(180px, 1.25fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #eef2f6;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.adminSalesCustomer strong {
+  overflow-wrap: anywhere;
+}
+
+.adminSalesItems {
+  display: grid;
+  gap: 4px;
+}
+
+.adminSalesItems span {
+  color: #475467;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.adminSalesTotal {
+  min-width: max-content;
+  text-align: right;
+}
+
+.adminSalesTotal strong {
+  font-size: 18px;
 }
 
 .adminRaffleProgress {
@@ -3762,6 +3963,33 @@ h2 {
   display: flex;
   justify-content: space-between;
   gap: 14px;
+}
+
+.adminSectionDescription {
+  margin: -4px 0 16px;
+  color: #667085;
+  line-height: 1.5;
+}
+
+.adminCartTable article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.adminCartValue {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.adminCartValue a {
+  margin-top: 4px;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .adminUserTable strong {
@@ -4211,12 +4439,43 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .adminDashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
   .adminTopbar {
     display: grid;
   }
 
   .adminRaffleSummary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adminSalesSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adminSalesLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .adminSalesHistory article {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .adminSalesTotal {
+    text-align: left;
+  }
+
+  .adminCartTable article {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .adminCartValue {
+    justify-items: start;
+    text-align: left;
   }
 
   .adminProductTable article,
@@ -4608,9 +4867,39 @@ h2 {
     display: grid;
   }
 
+  .adminDashboardHeader,
+  .adminDashboardPanelHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .adminDashboardHeader button,
+  .adminDashboardPanelHeader a {
+    width: 100%;
+    text-align: center;
+  }
+
+  .adminDashboardMetrics {
+    grid-template-columns: 1fr;
+  }
+
   .adminCleanForm .full,
   .adminFormActions {
     grid-column: auto;
+  }
+
+  .adminCardHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .adminHeaderActions {
+    width: 100%;
+  }
+
+  .adminHeaderActions select,
+  .adminHeaderActions button {
+    flex: 1;
   }
 
   .variationEditorHead,
@@ -4857,7 +5146,35 @@ h2 {
   }
 
   .productGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .productBody {
+    gap: 7px;
+    padding: 8px 8px 0;
+  }
+
+  .productMeta {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .productBody h3 {
+    font-size: clamp(18px, 5.4vw, 22px);
+  }
+
+  .productTags {
+    gap: 4px;
+  }
+
+  .productTags span {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+
+  .productFooter {
+    min-height: 8px;
   }
 
   .hellpointsPage {
@@ -5023,7 +5340,7 @@ h2 {
 
   .productMainImage {
     min-height: 0;
-    height: 55svh;
+    height: min(48svh, 440px);
     border: 0;
     background: var(--white);
   }
@@ -5033,7 +5350,7 @@ h2 {
   }
 
   .productThumbs {
-    grid-auto-columns: 72px;
+    grid-auto-columns: 60px;
     grid-auto-flow: column;
     grid-template-columns: none;
     overflow-x: auto;
@@ -5215,5 +5532,11 @@ h2 {
 
   .footer div {
     display: none;
+  }
+}
+
+@media (max-width: 359px) {
+  .productGrid {
+    grid-template-columns: 1fr;
   }
 }
