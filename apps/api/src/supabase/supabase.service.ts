@@ -7,6 +7,8 @@ type UploadInput = {
   base64?: string;
 };
 
+export const PRODUCT_IMAGE_CACHE_SECONDS = 60 * 60 * 24 * 365;
+
 @Injectable()
 export class SupabaseService {
   private readonly bucket = process.env.SUPABASE_STORAGE_BUCKET ?? "images";
@@ -46,6 +48,9 @@ export class SupabaseService {
 
     const { error } = await client.storage.from(this.bucket).upload(path, bytes, {
       contentType,
+      // Product images receive a unique UUID path and are never overwritten, so
+      // browsers and the Supabase CDN can safely retain them for a long time.
+      cacheControl: String(PRODUCT_IMAGE_CACHE_SECONDS),
       upsert: false
     });
 

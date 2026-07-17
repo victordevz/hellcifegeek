@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "images:cache": "tsx src/scripts/cache-product-images.ts",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },

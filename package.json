@@ -12,6 +12,7 @@
     "build:api": "npm run build -w @hellcifegeek/api",
     "start": "npm run start -w @hellcifegeek/web",
     "start:api": "npm run start -w @hellcifegeek/api",
+    "images:cache": "npm run images:cache -w @hellcifegeek/api",
     "typecheck": "npm run typecheck -w @hellcifegeek/web",
     "typecheck:api": "npm run typecheck -w @hellcifegeek/api",
     "test:api": "npm test -w @hellcifegeek/api"

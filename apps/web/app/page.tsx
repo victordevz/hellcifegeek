@@ -149,17 +149,33 @@ function productImages(product: ApiProduct) {
   return images.filter(Boolean);
 }
 
-function preloadProductImages(product: ApiProduct) {
+function preloadProductImages(product: ApiProduct, cache: Map<string, HTMLImageElement>) {
   if (typeof Image === "undefined") {
     return;
   }
 
-  productImages(product).forEach((source) => {
+  productImages(product).forEach((source, index) => {
+    if (cache.has(source)) {
+      return;
+    }
+
     const image = new Image();
     image.decoding = "async";
+    image.fetchPriority = index === 0 ? "high" : "low";
     image.src = source;
+    cache.set(source, image);
     void image.decode?.().catch(() => undefined);
   });
+
+  while (cache.size > 24) {
+    const oldestSource = cache.keys().next().value;
+
+    if (!oldestSource) {
+      return;
+    }
+
+    cache.delete(oldestSource);
+  }
 }
 
 function stockFor(product: ApiProduct, variation?: ProductVariation) {
@@ -328,6 +344,7 @@ export default function Page() {
   const loginModalRef = useRef<HTMLDivElement>(null);
   const signupModalRef = useRef<HTMLDivElement>(null);
   const galleryPointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const galleryImagePreloadsRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const categoriesById = useMemo(() => {
     return new Map(categories.map((category) => [category.id, category.name]));
   }, [categories]);
@@ -802,7 +819,7 @@ export default function Page() {
 
   useEffect(() => {
     if (selectedProduct) {
-      preloadProductImages(selectedProduct);
+      preloadProductImages(selectedProduct, galleryImagePreloadsRef.current);
     }
   }, [selectedProduct]);
 
@@ -826,7 +843,7 @@ export default function Page() {
 
   function openProduct(product: ApiProduct) {
     const firstAvailableVariation = product.variations?.find((variation) => stockFor(product, variation) > 0) ?? product.variations?.[0];
-    preloadProductImages(product);
+    preloadProductImages(product, galleryImagePreloadsRef.current);
     setSelectedProduct(product);
     setSelectedVariationId(firstAvailableVariation?.id ?? null);
     setSelectedImageIndex(0);
@@ -1541,10 +1558,10 @@ export default function Page() {
                 aria-label={`Imagem ${selectedImageIndex + 1} de ${productImages(selectedProduct).length}. Deslize para trocar.`}
               >
                 <img
-                  key={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl}
                   src={productImages(selectedProduct)[selectedImageIndex] ?? selectedProduct.photoUrl}
                   alt={selectedProduct.name}
                   decoding="async"
+                  fetchPriority="high"
                 />
               </div>
               {productImages(selectedProduct).length > 1 && (
@@ -1557,7 +1574,7 @@ export default function Page() {
                       onClick={() => setSelectedImageIndex(index)}
                       aria-label={`Ver imagem ${index + 1}`}
                     >
-                      <img src={image} alt="" />
+                      <img src={image} alt="" loading="eager" decoding="async" fetchPriority="low" />
                     </button>
                   ))}
                 </div>
