@@ -328,14 +328,14 @@ h2 {
 
 .mainHeadline {
   position: relative;
-  animation: mainHeadlineSwap 5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both;
+  animation: mainHeadlineSwap 5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s infinite both;
 }
 
 .altHeadline {
   position: absolute;
   inset: 0;
   opacity: 0;
-  animation: altHeadlineSwap 5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s both;
+  animation: altHeadlineSwap 5s cubic-bezier(0.22, 1, 0.36, 1) 0.8s infinite both;
 }
 
 .heroMeta {
@@ -5104,9 +5104,10 @@ h2 {
   }
 
   .hero h1 {
-    font-size: clamp(52px, 18vw, 92px);
-    line-height: 0.88;
-    overflow-wrap: anywhere;
+    font-size: clamp(32px, 10vw, 42px);
+    line-height: 0.9;
+    overflow-wrap: normal;
+    white-space: nowrap;
   }
 
   .heroMeta {
